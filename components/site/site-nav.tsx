@@ -1,0 +1,90 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X } from "lucide-react";
+import { Logo } from "./logo";
+import { ButtonLink } from "@/components/ui/button";
+
+const baglantilar = [
+  { href: "/#ozellikler", label: "Özellikler" },
+  { href: "/#nasil-calisir", label: "Nasıl Çalışır" },
+  { href: "/#etkinlikler", label: "Etkinlik Türleri" },
+  { href: "/e/elif-mert", label: "Demo Misafir Sayfası" },
+];
+
+export function SiteNav() {
+  const [acik, setAcik] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50">
+      <div className="glass border-b border-border/60">
+        <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
+          <Logo />
+
+          <div className="hidden items-center gap-8 md:flex">
+            {baglantilar.map((b) => (
+              <Link
+                key={b.href}
+                href={b.href}
+                className="text-sm text-foreground/70 transition-colors hover:text-foreground"
+              >
+                {b.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="hidden items-center gap-3 md:flex">
+            <ButtonLink href="/giris" variant="ghost" size="sm">
+              Giriş Yap
+            </ButtonLink>
+            <ButtonLink href="/kayit" size="sm">
+              Ücretsiz Başla
+            </ButtonLink>
+          </div>
+
+          <button
+            className="md:hidden rounded-full p-2 text-foreground/80 hover:bg-muted"
+            onClick={() => setAcik((v) => !v)}
+            aria-label="Menü"
+          >
+            {acik ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </nav>
+      </div>
+
+      <AnimatePresence>
+        {acik && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass overflow-hidden border-b border-border/60 md:hidden"
+          >
+            <div className="flex flex-col gap-1 px-5 py-4">
+              {baglantilar.map((b) => (
+                <Link
+                  key={b.href}
+                  href={b.href}
+                  onClick={() => setAcik(false)}
+                  className="rounded-xl px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted"
+                >
+                  {b.label}
+                </Link>
+              ))}
+              <div className="mt-2 flex gap-2">
+                <ButtonLink href="/giris" variant="outline" size="sm" className="flex-1">
+                  Giriş Yap
+                </ButtonLink>
+                <ButtonLink href="/kayit" size="sm" className="flex-1">
+                  Ücretsiz Başla
+                </ButtonLink>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
+  );
+}
