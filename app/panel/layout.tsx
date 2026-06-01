@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { Bell, Plus, Menu } from "lucide-react";
-import { Sidebar } from "@/components/dashboard/sidebar";
+import { Bell, Plus } from "lucide-react";
+import { Sidebar, MobilMenu } from "@/components/dashboard/sidebar";
 import { ButtonLink } from "@/components/ui/button";
 
 export default function PanelLayout({
@@ -15,16 +14,12 @@ export default function PanelLayout({
         {/* Üst bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/70 px-5 backdrop-blur-md sm:px-8">
           <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-lg p-2 text-foreground/70 hover:bg-muted lg:hidden"
-              aria-label="Menü"
-            >
-              <Menu className="h-5 w-5" />
-            </Link>
+            <MobilMenu />
             <div>
               <p className="text-xs text-muted-foreground">Hoş geldiniz 👋</p>
-              <p className="font-display text-sm font-semibold">Elif Yılmaz</p>
+              <p className="font-display text-sm font-semibold">
+                Etkinlik Paneli
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -35,7 +30,7 @@ export default function PanelLayout({
               <Bell className="h-[18px] w-[18px]" />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose" />
             </button>
-            <ButtonLink href="/panel/etkinlikler" size="sm">
+            <ButtonLink href="/panel/etkinlikler/yeni" size="sm">
               <Plus className="h-4 w-4" />
               Yeni Etkinlik
             </ButtonLink>

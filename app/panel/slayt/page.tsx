@@ -41,6 +41,11 @@ export default function SlaytLansmanPage() {
         Hangi etkinlik için başlatılsın?
       </h3>
       <div className="mt-3 space-y-3">
+        {aktifEtkinlikler.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border bg-card/60 p-8 text-center text-sm text-muted-foreground">
+            Slayt başlatmak için aktif bir etkinliğiniz olmalı.
+          </div>
+        )}
         {aktifEtkinlikler.map((e) => (
           <div
             key={e.id}

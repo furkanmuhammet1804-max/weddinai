@@ -47,7 +47,8 @@ const istatistikKartlari = [
 ];
 
 export default function PanelPage() {
-  const enYuksek = Math.max(...saatlikAktivite.map((s) => s.deger));
+  // Boş diziye karşı koru: Math.max(...[]) => -Infinity, 0'a bölme => NaN yükseklik.
+  const enYuksek = Math.max(1, ...saatlikAktivite.map((s) => s.deger));
   const oran: Record<string, string> = {
     dikey: "aspect-[3/4]",
     kare: "aspect-square",
@@ -61,7 +62,7 @@ export default function PanelPage() {
           Genel Bakış
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Elif &amp; Mert Düğünü · canlı etkinlik özeti
+          {etkinlikler[0]?.title ?? "Etkinliğiniz"} · canlı etkinlik özeti
         </p>
       </div>
 

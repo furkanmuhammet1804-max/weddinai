@@ -21,13 +21,14 @@ const cerceveler: { id: CerceveStil; ad: string }[] = [
 ];
 
 export default function QrPage() {
-  const [slug, setSlug] = useState(etkinlikler[0].slug);
+  const [slug, setSlug] = useState(etkinlikler[0]?.slug ?? "");
   const [renk, setRenk] = useState(renkSecenekleri[0]);
   const [cerceve, setCerceve] = useState<CerceveStil>("altin");
   const [dataUrl, setDataUrl] = useState("");
   const [origin, setOrigin] = useState("");
 
-  const etkinlik = etkinlikler.find((e) => e.slug === slug) ?? etkinlikler[0];
+  const etkinlik =
+    etkinlikler.find((e) => e.slug === slug) ?? etkinlikler[0];
   const hedefUrl = origin ? `${origin}/e/${slug}` : `/e/${slug}`;
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function QrPage() {
   }, [hedefUrl, renk]);
 
   async function kartIndir() {
+    if (!etkinlik || !dataUrl) return;
     const canvas = document.createElement("canvas");
     const W = 1080;
     const H = 1350;
@@ -102,6 +104,21 @@ export default function QrPage() {
     link.download = `${slug}-qr-kart.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
+  }
+
+  if (!etkinlik) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <h1 className="font-display text-2xl font-semibold tracking-tight">
+          QR Tasarım Motoru
+        </h1>
+        <div className="mt-8 flex flex-col items-center justify-center rounded-3xl border border-dashed border-primary/30 bg-card/60 px-6 py-20 text-center">
+          <p className="text-sm text-muted-foreground">
+            QR kodu oluşturmak için önce bir etkinlik ekleyin.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

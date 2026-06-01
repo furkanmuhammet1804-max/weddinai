@@ -26,12 +26,14 @@ export function AuthForm({ mod }: { mod: Mod }) {
 
   async function gonder(e: React.FormEvent) {
     e.preventDefault();
+    if (yukleniyor) return; // çift gönderimi engelle
     setHata(null);
+    const email = form.email.trim().toLowerCase();
     if (mod === "kayit" && form.ad.trim().length < 2) {
       setHata("Lütfen adınızı ve soyadınızı girin.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setHata("Geçerli bir e-posta adresi girin.");
       return;
     }
@@ -45,22 +47,50 @@ export function AuthForm({ mod }: { mod: Mod }) {
     try {
       if (mod === "kayit") {
         const { error } = await supabase.auth.signUp({
-          email: form.email,
+          email,
           password: form.sifre,
           options: { data: { full_name: form.ad.trim() } },
         });
         if (error) throw error;
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email: form.email,
+          email,
           password: form.sifre,
         });
         if (error) throw error;
       }
-      // Tam sayfa yönlendirme: yeni oturum çerezi sunucuya garanti gönderilsin
-      window.location.assign("/panel");
+      // Tam sayfa yönlendirme: yeni oturum çerezi sunucuya garanti gönderilsin.
+      // Giriş öncesi istenen hedef varsa (?next=) oraya, yoksa panele dön.
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      const hedef = next && next.startsWith("/") && !next.startsWith("//")
+        ? next
+        : "/panel";
+      window.location.assign(hedef);
     } catch (err) {
       setHata(cevirHata(err));
+      setYukleniyor(false);
+    }
+  }
+
+  async function sifreSifirla() {
+    setHata(null);
+    const email = form.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setHata("Sıfırlama bağlantısı için geçerli bir e-posta girin.");
+      return;
+    }
+    setYukleniyor(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/giris`,
+      });
+      if (error) throw error;
+      setHata("Şifre sıfırlama bağlantısı e-postanıza gönderildi.");
+    } catch (err) {
+      setHata(cevirHata(err));
+    } finally {
       setYukleniyor(false);
     }
   }
@@ -182,12 +212,14 @@ export function AuthForm({ mod }: { mod: Mod }) {
 
             {mod === "giris" && (
               <div className="flex justify-end">
-                <Link
-                  href="#"
-                  className="text-xs text-[#9c7740] hover:underline"
+                <button
+                  type="button"
+                  onClick={sifreSifirla}
+                  disabled={yukleniyor}
+                  className="text-xs text-[#9c7740] hover:underline disabled:opacity-60"
                 >
                   Şifremi unuttum
-                </Link>
+                </button>
               </div>
             )}
 

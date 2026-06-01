@@ -107,6 +107,15 @@ export default function MedyaPage() {
         </div>
       )}
 
+      {/* Boş durum */}
+      {liste.length === 0 && (
+        <div className="mt-6 flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 px-6 py-20 text-center">
+          <p className="text-sm text-muted-foreground">
+            Bu filtreye uygun medya bulunamadı.
+          </p>
+        </div>
+      )}
+
       {/* Masonry */}
       <div className="mt-6 columns-2 gap-4 sm:columns-3 lg:columns-4">
         {liste.map((m) => {

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { Camera, Mail, Heart } from "lucide-react";
 
-const gruplar = [
+const gruplar: {
+  baslik: string;
+  linkler: { href: string | null; label: string }[];
+}[] = [
   {
     baslik: "Platform",
     linkler: [
@@ -22,9 +25,9 @@ const gruplar = [
   {
     baslik: "Kurumsal",
     linkler: [
-      { href: "#", label: "Hakkımızda" },
-      { href: "#", label: "Gizlilik Politikası" },
-      { href: "#", label: "İletişim" },
+      { href: null, label: "Hakkımızda" },
+      { href: null, label: "Gizlilik Politikası" },
+      { href: null, label: "İletişim" },
     ],
   },
 ];
@@ -43,7 +46,9 @@ export function SiteFooter() {
             </p>
             <div className="mt-5 flex gap-3">
               <a
-                href="#"
+                href="https://instagram.com/weddinai"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="rounded-full border border-border p-2.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
                 aria-label="Instagram"
               >
@@ -63,16 +68,30 @@ export function SiteFooter() {
             <div key={g.baslik}>
               <h4 className="font-display text-sm font-semibold">{g.baslik}</h4>
               <ul className="mt-4 space-y-3">
-                {g.linkler.map((l) => (
-                  <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {l.label}
-                    </Link>
-                  </li>
-                ))}
+                {g.linkler.map((l) =>
+                  l.href ? (
+                    <li key={l.label}>
+                      <Link
+                        href={l.href}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {l.label}
+                      </Link>
+                    </li>
+                  ) : (
+                    <li key={l.label}>
+                      <span
+                        className="inline-flex cursor-default items-center gap-1.5 text-sm text-muted-foreground/70"
+                        title="Yakında"
+                      >
+                        {l.label}
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                          Yakında
+                        </span>
+                      </span>
+                    </li>
+                  ),
+                )}
               </ul>
             </div>
           ))}

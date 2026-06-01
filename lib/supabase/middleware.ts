@@ -26,15 +26,32 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // getUser() oturumu tazeler — çağrılması önemli
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getUser() oturumu tazeler — çağrılması önemli.
+  // Ağ/Supabase hatası isteği çökertmesin; hatada kullanıcı yok kabul edilir.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
 
-  // Korumalı alan: /panel girişsiz erişilemez
-  if (!user && request.nextUrl.pathname.startsWith("/panel")) {
+  const { pathname } = request.nextUrl;
+
+  // Korumalı alan: /panel girişsiz erişilemez.
+  // Giriş sonrası geri dönülebilsin diye hedefi ?next= ile taşı.
+  if (!user && pathname.startsWith("/panel")) {
     const url = request.nextUrl.clone();
     url.pathname = "/giris";
+    url.searchParams.set("next", pathname + request.nextUrl.search);
+    return NextResponse.redirect(url);
+  }
+
+  // Girişli kullanıcı /giris veya /kayit'e gelirse panele yönlendir.
+  if (user && (pathname === "/giris" || pathname === "/kayit")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/panel";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

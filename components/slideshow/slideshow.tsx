@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Sparkles, Camera, X } from "lucide-react";
 import Link from "next/link";
@@ -36,8 +36,21 @@ export function Slideshow({ baslik }: { baslik: string }) {
   const [aktif, setAktif] = useState(0);
   const [bildirim, setBildirim] = useState<Slayt | null>(null);
 
-  // Otomatik geçiş
+  // Bekleyen setTimeout id'leri — unmount'ta temizlenir (bellek sızıntısı /
+  // unmount sonrası setState uyarısı önlenir).
+  const zamanlayicilar = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => {
+    const liste = zamanlayicilar.current;
+    return () => {
+      liste.forEach(clearTimeout);
+      liste.length = 0;
+    };
+  }, []);
+
+  // Otomatik geçiş — tek slayt veya boş listede geçişe gerek yok (modulo-by-zero
+  // ve gereksiz yeniden render önlenir).
+  useEffect(() => {
+    if (slaytlar.length <= 1) return;
     const t = setInterval(() => {
       setAktif((i) => (i + 1) % slaytlar.length);
     }, 5000);
@@ -47,20 +60,30 @@ export function Slideshow({ baslik }: { baslik: string }) {
   // Realtime simülasyonu: yeni fotoğraf "gelmesi"
   const yeniAniEkle = useCallback(() => {
     const yeni: Slayt = {
-      id: `canli_${Date.now()}`,
+      id: `canli_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       guest_name: yeniIsimler[Math.floor(Math.random() * yeniIsimler.length)],
       tone: yeniTonlar[Math.floor(Math.random() * yeniTonlar.length)],
       yeni: true,
     };
     setBildirim(yeni);
-    setTimeout(() => {
+    const unut = (id: ReturnType<typeof setTimeout>) => {
+      const idx = zamanlayicilar.current.indexOf(id);
+      if (idx !== -1) zamanlayicilar.current.splice(idx, 1);
+    };
+    const t1 = setTimeout(() => {
+      unut(t1);
       setSlaytlar((prev) => {
         const sonraki = [...prev, yeni];
         setAktif(sonraki.length - 1); // yeni gelen anı öne çıkar
         return sonraki;
       });
-      setTimeout(() => setBildirim(null), 1500);
+      const t2 = setTimeout(() => {
+        unut(t2);
+        setBildirim(null);
+      }, 1500);
+      zamanlayicilar.current.push(t2);
     }, 1800);
+    zamanlayicilar.current.push(t1);
   }, []);
 
   useEffect(() => {
@@ -68,7 +91,57 @@ export function Slideshow({ baslik }: { baslik: string }) {
     return () => clearInterval(t);
   }, [yeniAniEkle]);
 
-  const mevcut = slaytlar[aktif];
+  // İndeks listeyle senkron kalsın: liste küçülürse (örn. moderasyon kaldırması)
+  // aktif indeks sınır dışına taşmasın.
+  useEffect(() => {
+    if (slaytlar.length === 0) return;
+    setAktif((i) => (i >= slaytlar.length ? slaytlar.length - 1 : i));
+  }, [slaytlar.length]);
+
+  // Boş liste: çökme / boş ekran yerine zarif "fotoğraf bekleniyor" durumu.
+  if (slaytlar.length === 0) {
+    return (
+      <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-[#1a1613] text-center text-white">
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-6 sm:p-10">
+          <div className="flex items-center gap-2 text-white/90">
+            <span className="flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-rose opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose" />
+            </span>
+            <span className="text-sm font-medium uppercase tracking-widest">
+              Canlı
+            </span>
+          </div>
+          <Link
+            href="/panel/slayt"
+            className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur transition-colors hover:bg-white/25"
+            aria-label="Çıkış"
+          >
+            <X className="h-5 w-5" />
+          </Link>
+        </div>
+        <motion.span
+          animate={{ scale: [1, 1.08, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10"
+        >
+          <Camera className="h-9 w-9 text-white/80" />
+        </motion.span>
+        <p className="mt-6 font-display text-2xl font-semibold drop-shadow-lg sm:text-4xl">
+          {baslik}
+        </p>
+        <p className="mt-3 max-w-md px-6 text-base text-white/70 sm:text-lg">
+          İlk anılar bekleniyor… Misafirler fotoğraf paylaştıkça burada canlı
+          olarak görünecek.
+        </p>
+      </div>
+    );
+  }
+
+  // Güvenli aktif indeks — render anında listeyle uyumsuzluk olsa bile undefined
+  // erişimi (mevcut.id çökmesi) yaşanmaz.
+  const guvenliIndex = ((aktif % slaytlar.length) + slaytlar.length) % slaytlar.length;
+  const mevcut = slaytlar[guvenliIndex];
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-[#1a1613]">
@@ -137,7 +210,9 @@ export function Slideshow({ baslik }: { baslik: string }) {
               <span
                 key={s.id}
                 className={`h-1 rounded-full transition-all duration-500 ${
-                  gercekIndex === aktif ? "w-8 bg-white" : "w-3 bg-white/40"
+                  gercekIndex === guvenliIndex
+                    ? "w-8 bg-white"
+                    : "w-3 bg-white/40"
                 }`}
               />
             );

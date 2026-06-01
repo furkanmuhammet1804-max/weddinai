@@ -120,7 +120,8 @@ export const medyaListesi: Medya[] = Array.from({ length: 18 }, (_, i) => ({
   guest_name: isimler[i % isimler.length],
   file_type: i % 5 === 0 ? "video" : "fotograf",
   status: i % 7 === 0 ? "beklemede" : "onaylandi",
-  likes: Math.floor(Math.random() * 48) + 2,
+  // Deterministik (sunucu/istemci aynı sonucu üretsin — hydration uyumsuzluğu olmasın)
+  likes: ((i * 13) % 48) + 2,
   tone: tonlar[i % tonlar.length],
   ratio: oranlar[i % oranlar.length],
   created_at: `2026-08-15T${String(18 + (i % 6)).padStart(2, "0")}:${String(
