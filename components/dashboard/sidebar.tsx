@@ -4,26 +4,21 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  CalendarHeart,
-  Images,
-  QrCode,
-  MonitorPlay,
-  BarChart3,
+  DoorOpen,
+  Plus,
   Settings,
   Menu,
   X,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 import { Logo } from "@/components/site/logo";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 const menu = [
-  { href: "/panel", label: "Genel Bakış", icon: LayoutDashboard },
-  { href: "/panel/etkinlikler", label: "Etkinlikler", icon: CalendarHeart },
-  { href: "/panel/medya", label: "Medya Merkezi", icon: Images },
-  { href: "/panel/qr", label: "QR Tasarım", icon: QrCode },
-  { href: "/panel/slayt", label: "Canlı Slayt", icon: MonitorPlay },
-  { href: "/panel/analiz", label: "Analiz", icon: BarChart3 },
+  { href: "/panel", label: "Odalarım", icon: DoorOpen },
+  { href: "/panel/oda/yeni", label: "Yeni Oda", icon: Plus },
   { href: "/panel/ayarlar", label: "Ayarlar", icon: Settings },
 ];
 
@@ -36,8 +31,12 @@ function NavIcerik({ onNavigate }: { onNavigate?: () => void }) {
           const Icon = m.icon;
           const aktif =
             m.href === "/panel"
-              ? pathname === "/panel"
-              : pathname.startsWith(m.href);
+              ? pathname === "/panel" ||
+                (pathname.startsWith("/panel/oda/") &&
+                  pathname !== "/panel/oda/yeni")
+              : m.href === "/panel/oda/yeni"
+                ? pathname === "/panel/oda/yeni"
+                : pathname.startsWith(m.href);
           return (
             <Link
               key={m.href}
@@ -70,7 +69,44 @@ function NavIcerik({ onNavigate }: { onNavigate?: () => void }) {
           Profesyonel&apos;e geç →
         </Link>
       </div>
+      <div className="px-3 pb-4">
+        <CikisButonu />
+      </div>
     </>
+  );
+}
+
+// Oturumu kapatır ve giriş sayfasına tam-sayfa döner
+// (çerez sunucudan da temizlensin diye window.location kullanılır).
+function CikisButonu() {
+  const [cikiliyor, setCikiliyor] = useState(false);
+
+  async function cikisYap() {
+    if (cikiliyor) return;
+    setCikiliyor(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ağ hatası olsa bile yine de giriş sayfasına gönder.
+    }
+    window.location.assign("/giris");
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={cikisYap}
+      disabled={cikiliyor}
+      className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-foreground/70 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60"
+    >
+      {cikiliyor ? (
+        <Loader2 className="h-[18px] w-[18px] animate-spin" />
+      ) : (
+        <LogOut className="h-[18px] w-[18px]" />
+      )}
+      Çıkış Yap
+    </button>
   );
 }
 

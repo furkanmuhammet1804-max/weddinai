@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# geçici DB şifresi — repoda tutulmamalı
+.db-pass-temp.txt
+
 # vercel
 .vercel
 

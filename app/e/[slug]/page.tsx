@@ -1,33 +1,39 @@
 import { notFound } from "next/navigation";
 import { GuestApp } from "@/components/guest/guest-app";
-import { etkinlikler } from "@/lib/mock-data";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-export function generateStaticParams() {
-  // Yalnızca yayında olan (aktif/arşivlenmiş) etkinlikler için statik yol üret;
-  // taslaklar herkese açık erişime kapalıdır.
-  return etkinlikler
-    .filter((e) => e.status !== "taslak")
-    .map((e) => ({ slug: e.slug }));
-}
+// Misafir sayfası veriye bağlı → istek anında render edilir.
+export const dynamic = "force-dynamic";
 
 export default async function GuestPage(props: PageProps<"/e/[slug]">) {
   const { slug } = await props.params;
-
-  // Slug boş/biçimsizse (örn. trim sonrası boş) doğrudan 404.
   const temizSlug = typeof slug === "string" ? slug.trim() : "";
   if (!temizSlug) {
     notFound();
   }
 
-  const etkinlik = etkinlikler.find((e) => e.slug === temizSlug);
+  // Etkinliği slug ile bul. (Yalnızca yükleme için gereken alanlar.)
+  const admin = createAdminClient();
+  const { data: ev } = await admin
+    .from("events")
+    .select("id, title, event_type, status")
+    .ilike("slug", temizSlug)
+    .maybeSingle();
 
-  // Bilinmeyen slug veya henüz yayınlanmamış taslak → 404 (gracefully).
-  if (!etkinlik || etkinlik.status === "taslak") {
+  if (!ev || ev.status === "taslak") {
     notFound();
   }
 
-  // Arşivlenmiş etkinlik var ama yüklemeye kapalı: kapalı durumu göster.
-  const kapali = etkinlik.status === "arsivlendi";
+  // Arşivlenmiş etkinlik: sayfa açılır ama yükleme kapalı.
+  const kapali = ev.status === "arsivlendi";
 
-  return <GuestApp etkinlik={etkinlik} kapali={kapali} />;
+  return (
+    <GuestApp
+      eventId={ev.id as string}
+      slug={temizSlug}
+      baslik={ev.title as string}
+      tur={ev.event_type as string}
+      kapali={kapali}
+    />
+  );
 }

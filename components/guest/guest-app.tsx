@@ -8,41 +8,35 @@ import {
   Video,
   Mic,
   PenLine,
-  Heart,
   CheckCircle2,
   Square,
   Sparkles,
   AlertTriangle,
   Lock,
   RotateCw,
+  Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Etkinlik } from "@/lib/mock-data";
-import { aniDefteri, medyaListesi, ETKINLIK_TURU_ETIKET } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+import { turEtiket } from "@/lib/etkinlik";
 
-// ISO içinden saat:dakika çıkarır (SSR/CSR uyumlu, hydration güvenli)
-function formatSaatGuvenli(iso: string): string {
-  const t = iso.split("T")[1] ?? "";
-  return t.slice(0, 5);
-}
-
-type Sekme = "yukle" | "ani-defteri" | "akis";
-
-// Supabase Storage tek dosya sınırı (~50 MiB) ve makul bir toplu seçim üst sınırı.
+const MEDYA_BUCKET = "event-media";
+const SES_BUCKET = "event-audio";
 const MAKS_DOSYA_BAYT = 50 * 1024 * 1024; // 50 MiB
 const MAKS_DOSYA_ADET = 30;
 
+type Sekme = "yukle" | "ani";
 type DosyaDurum = "bekliyor" | "yukleniyor" | "tamam" | "hata";
 
 interface YuklemeDosya {
   id: string;
+  dosya: File;
   ad: string;
   tur: "fotograf" | "video";
   boyut: number;
-  ilerleme: number;
   durum: DosyaDurum;
   hata?: string;
-  // önizleme için object URL (temizlenmesi gerekir)
   onizleme?: string;
 }
 
@@ -52,8 +46,6 @@ function bytKbMb(bayt: number): string {
   return `${bayt} B`;
 }
 
-// Desteklenen MIME tipleri. HEIC/HEIF tarayıcıda görüntülenemez ve çoğu
-// işleme akışında sorun çıkarır; net bir mesajla reddedilir.
 function dosyaTuru(f: File): "fotograf" | "video" | null {
   const t = (f.type || "").toLowerCase();
   if (t.startsWith("image/")) {
@@ -61,34 +53,43 @@ function dosyaTuru(f: File): "fotograf" | "video" | null {
     return "fotograf";
   }
   if (t.startsWith("video/")) return "video";
-  // Bazı mobil tarayıcılar type'ı boş bırakır → uzantıdan tahmin et.
   if (!t) {
     const ad = f.name.toLowerCase();
     if (/\.(jpe?g|png|gif|webp|avif)$/.test(ad)) return "fotograf";
     if (/\.(mp4|mov|webm|m4v)$/.test(ad)) return "video";
-    if (/\.(heic|heif)$/.test(ad)) return null;
   }
   return null;
 }
 
+function uzanti(f: File): string {
+  const ad = f.name.toLowerCase();
+  const nokta = ad.lastIndexOf(".");
+  if (nokta > 0 && nokta < ad.length - 1) return ad.slice(nokta + 1);
+  return f.type.startsWith("video/") ? "mp4" : "jpg";
+}
+
 export function GuestApp({
-  etkinlik,
+  eventId,
+  slug,
+  baslik,
+  tur,
   kapali = false,
 }: {
-  etkinlik: Etkinlik;
+  eventId: string;
+  slug: string;
+  baslik: string;
+  tur: string;
   kapali?: boolean;
 }) {
   const [sekme, setSekme] = useState<Sekme>("yukle");
 
   const sekmeler: { id: Sekme; etiket: string; icon: typeof UploadCloud }[] = [
     { id: "yukle", etiket: "Anı Yükle", icon: UploadCloud },
-    { id: "ani-defteri", etiket: "Anı Defteri", icon: PenLine },
-    { id: "akis", etiket: "Sosyal Akış", icon: Heart },
+    { id: "ani", etiket: "Anı Bırak", icon: PenLine },
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-aura">
-      {/* Hero */}
+    <div className="bg-aura flex min-h-screen flex-col">
       <header className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-rose-soft via-primary-soft to-background opacity-70" />
         <div className="relative mx-auto max-w-2xl px-5 pb-10 pt-16 text-center">
@@ -98,29 +99,27 @@ export function GuestApp({
             className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/70 px-4 py-1.5 text-xs font-medium text-primary-deep"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            {ETKINLIK_TURU_ETIKET[etkinlik.event_type]}
+            {turEtiket(tur)}
           </motion.span>
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="font-display mt-5 text-4xl font-semibold tracking-tight sm:text-5xl"
+            className="font-display mt-5 text-3xl font-semibold tracking-tight sm:text-4xl"
           >
-            {etkinlik.title}
+            {baslik}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="mt-3 text-muted-foreground"
+            className="mt-2 text-muted-foreground"
           >
-            Bu özel anın bir parçası olun — fotoğraf, video ve anılarınızı
-            paylaşın 💛
+            Odasına hoş geldiniz 💛 Bu özel anın bir parçası olun.
           </motion.p>
         </div>
       </header>
 
-      {/* Sekmeler */}
       <div className="sticky top-0 z-30 border-y border-border/60 bg-card/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center gap-1 px-3">
           {sekmeler.map((s) => {
@@ -135,12 +134,14 @@ export function GuestApp({
                 <Icon
                   className={`h-4 w-4 ${aktif ? "text-primary" : "text-muted-foreground"}`}
                 />
-                <span className={aktif ? "text-foreground" : "text-muted-foreground"}>
+                <span
+                  className={aktif ? "text-foreground" : "text-muted-foreground"}
+                >
                   {s.etiket}
                 </span>
                 {aktif && (
                   <motion.div
-                    layoutId="sekme-cizgi"
+                    layoutId="misafir-sekme"
                     className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-primary"
                   />
                 )}
@@ -150,40 +151,33 @@ export function GuestApp({
         </div>
       </div>
 
-      {/* İçerik */}
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-8">
         <AnimatePresence mode="wait">
-          {sekme === "yukle" && (
+          {sekme === "yukle" ? (
             <motion.div
               key="yukle"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
             >
-              <YuklemeAlani kapali={kapali} />
+              <YuklemeAlani eventId={eventId} slug={slug} kapali={kapali} />
             </motion.div>
-          )}
-          {sekme === "ani-defteri" && (
+          ) : (
             <motion.div
               key="ani"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
             >
-              <AniDefteriAlani />
-            </motion.div>
-          )}
-          {sekme === "akis" && (
-            <motion.div
-              key="akis"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-            >
-              <SosyalAkis />
+              <AniBirak eventId={eventId} slug={slug} kapali={kapali} />
             </motion.div>
           )}
         </AnimatePresence>
+
+        <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          Yüklediğiniz içerikler yalnızca etkinlik sahibine gösterilir.
+        </p>
       </main>
 
       <footer className="py-8 text-center text-xs text-muted-foreground">
@@ -193,99 +187,99 @@ export function GuestApp({
   );
 }
 
-/* ----------------------- Yükleme Alanı ----------------------- */
-function YuklemeAlani({ kapali }: { kapali: boolean }) {
+/* ----------------------- Yükleme Alanı (gerçek) ----------------------- */
+function YuklemeAlani({
+  eventId,
+  slug,
+  kapali,
+}: {
+  eventId: string;
+  slug: string;
+  kapali: boolean;
+}) {
+  const [isim, setIsim] = useState("");
   const [dosyalar, setDosyalar] = useState<YuklemeDosya[]>([]);
   const [adim, setAdim] = useState<"bos" | "yukleniyor" | "tamam">("bos");
   const [reddedilenler, setReddedilenler] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Çalışan zamanlayıcılar — unmount/yeniden yüklemede temizlenir (sızıntı önleme).
-  const zamanlayicilar = useRef<ReturnType<typeof setInterval>[]>([]);
-  // Aynı anda iki yükleme başlamasını engelle (çift dokunma koruması).
   const yukleniyorRef = useRef(false);
 
-  const tumZamanlayicilariTemizle = useCallback(() => {
-    zamanlayicilar.current.forEach((z) => clearInterval(z));
-    zamanlayicilar.current = [];
-  }, []);
+  // İsmi en güncel haliyle yükleme sırasında kullanabilmek için ref.
+  const isimRef = useRef("");
+  useEffect(() => {
+    isimRef.current = isim;
+  }, [isim]);
 
-  // Unmount'ta: zamanlayıcıları durdur ve object URL'leri serbest bırak.
   useEffect(() => {
     return () => {
-      tumZamanlayicilariTemizle();
       setDosyalar((onceki) => {
         onceki.forEach((d) => d.onizleme && URL.revokeObjectURL(d.onizleme));
         return onceki;
       });
     };
-  }, [tumZamanlayicilariTemizle]);
-
-  // Tek bir dosyanın (mock) yüklemesini başlatır. Gerçek entegrasyonda
-  // burası Supabase Storage upload çağrısıyla değiştirilecek.
-  const dosyaYuklemeBaslat = useCallback((id: string) => {
-    setDosyalar((o) =>
-      o.map((x) =>
-        x.id === id ? { ...x, durum: "yukleniyor", ilerleme: 0, hata: undefined } : x,
-      ),
-    );
-    const interval = setInterval(() => {
-      setDosyalar((onceki) =>
-        onceki.map((x) => {
-          if (x.id !== id || x.durum !== "yukleniyor") return x;
-          const sonraki = Math.min(x.ilerleme + Math.random() * 18 + 6, 100);
-          // Mock: deterministik olmayan ama nadir bir başarısızlık göstermek
-          // yerine her zaman başarı simüle ediyoruz (gerçek hata yolu hazır).
-          if (sonraki >= 100) {
-            clearInterval(interval);
-            return { ...x, ilerleme: 100, durum: "tamam" };
-          }
-          return { ...x, ilerleme: sonraki };
-        }),
-      );
-    }, 240);
-    zamanlayicilar.current.push(interval);
-    // Güvenlik ağı: takılı kalan yüklemeyi belli süre sonra bitir.
-    const guard = setTimeout(() => {
-      clearInterval(interval);
-      setDosyalar((onceki) =>
-        onceki.map((x) =>
-          x.id === id && x.durum === "yukleniyor"
-            ? { ...x, ilerleme: 100, durum: "tamam" }
-            : x,
-        ),
-      );
-    }, 8000);
-    zamanlayicilar.current.push(guard as unknown as ReturnType<typeof setInterval>);
   }, []);
 
+  const durumGuncelle = useCallback(
+    (id: string, yeni: Partial<YuklemeDosya>) => {
+      setDosyalar((o) => o.map((x) => (x.id === id ? { ...x, ...yeni } : x)));
+    },
+    [],
+  );
+
+  const tekDosyaYukle = useCallback(
+    async (d: YuklemeDosya) => {
+      durumGuncelle(d.id, { durum: "yukleniyor", hata: undefined });
+      try {
+        const supabase = createClient();
+        const path = `${eventId}/${crypto.randomUUID()}.${uzanti(d.dosya)}`;
+        const { error: upErr } = await supabase.storage
+          .from(MEDYA_BUCKET)
+          .upload(path, d.dosya, {
+            contentType: d.dosya.type || undefined,
+            upsert: false,
+          });
+        if (upErr) throw upErr;
+
+        const { error: rpcErr } = await supabase.rpc("misafir_medya_ekle", {
+          p_slug: slug,
+          p_storage_path: path,
+          p_file_type: d.tur,
+          p_file_size: d.dosya.size,
+          p_guest_name: isimRef.current.trim() || null,
+        });
+        if (rpcErr) throw rpcErr;
+
+        durumGuncelle(d.id, { durum: "tamam" });
+      } catch {
+        durumGuncelle(d.id, {
+          durum: "hata",
+          hata: "Yükleme başarısız.",
+        });
+      }
+    },
+    [durumGuncelle, eventId, slug],
+  );
+
   function dosyaSec(secilen: FileList | null) {
-    // Çift dokunma / yükleme sürerken yeni seçim engellenir.
     if (yukleniyorRef.current) return;
-    // 0 dosya (iptal): hiçbir şey yapma, durumu bozma.
     if (!secilen || secilen.length === 0) return;
 
-    const hamListe = Array.from(secilen);
     const kabul: YuklemeDosya[] = [];
     const red: string[] = [];
-    const gorulenAnahtar = new Set<string>();
+    const gorulen = new Set<string>();
 
-    for (const f of hamListe) {
-      // Üst adet sınırı.
+    for (const f of Array.from(secilen)) {
       if (kabul.length >= MAKS_DOSYA_ADET) {
-        red.push(
-          `En fazla ${MAKS_DOSYA_ADET} dosya yükleyebilirsiniz; fazlası atlandı.`,
-        );
+        red.push(`En fazla ${MAKS_DOSYA_ADET} dosya; fazlası atlandı.`);
         break;
       }
-      // Yinelenen seçim (aynı ad + boyut) elenir.
       const anahtar = `${f.name}__${f.size}`;
-      if (gorulenAnahtar.has(anahtar)) continue;
-      gorulenAnahtar.add(anahtar);
+      if (gorulen.has(anahtar)) continue;
+      gorulen.add(anahtar);
 
       const tur = dosyaTuru(f);
       if (!tur) {
-        red.push(`${f.name}: desteklenmeyen dosya türü (HEIC/diğer).`);
+        red.push(`${f.name}: desteklenmeyen tür (HEIC/diğer).`);
         continue;
       }
       if (f.size === 0) {
@@ -293,9 +287,7 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
         continue;
       }
       if (f.size > MAKS_DOSYA_BAYT) {
-        red.push(
-          `${f.name}: çok büyük (${bytKbMb(f.size)} · sınır 50 MB).`,
-        );
+        red.push(`${f.name}: çok büyük (${bytKbMb(f.size)} · sınır 50 MB).`);
         continue;
       }
 
@@ -310,52 +302,51 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
 
       kabul.push({
         id: `${Date.now()}_${kabul.length}_${Math.random().toString(36).slice(2, 8)}`,
+        dosya: f,
         ad: f.name,
         tur,
         boyut: f.size,
-        ilerleme: 0,
         durum: "bekliyor",
         onizleme,
       });
     }
 
     setReddedilenler(red);
-
-    // Geçerli dosya yoksa yükleme durumuna geçme.
     if (kabul.length === 0) return;
 
     setDosyalar(kabul);
     setAdim("yukleniyor");
     yukleniyorRef.current = true;
-    kabul.forEach((d) => dosyaYuklemeBaslat(d.id));
+    // Sırayla yükle (paralel storage limitlerini zorlamamak için).
+    (async () => {
+      for (const d of kabul) {
+        await tekDosyaYukle(d);
+      }
+    })();
   }
 
-  // Yüklemelerin tamamlanışını izle; hepsi bitince (tamam/hata) genel durumu güncelle.
   useEffect(() => {
     if (adim !== "yukleniyor" || dosyalar.length === 0) return;
-    const devamEden = dosyalar.some(
+    const devam = dosyalar.some(
       (d) => d.durum === "yukleniyor" || d.durum === "bekliyor",
     );
-    if (!devamEden) {
+    if (!devam) {
       yukleniyorRef.current = false;
-      const hepsiBasarisiz = dosyalar.every((d) => d.durum === "hata");
-      // Hepsi başarısızsa kullanıcı listede kalsın ve tekrar deneyebilsin.
-      if (!hepsiBasarisiz) setAdim("tamam");
+      const hepsiHata = dosyalar.every((d) => d.durum === "hata");
+      if (!hepsiHata) setAdim("tamam");
     }
   }, [dosyalar, adim]);
 
-  const basariliSayisi = dosyalar.filter((d) => d.durum === "tamam").length;
-  const hataliSayisi = dosyalar.filter((d) => d.durum === "hata").length;
+  const basarili = dosyalar.filter((d) => d.durum === "tamam").length;
+  const hatali = dosyalar.filter((d) => d.durum === "hata").length;
 
-  function yeniden(id: string) {
-    // Başka yükleme sürse de tekil yeniden denemeye izin verilir.
+  async function yeniden(d: YuklemeDosya) {
     setAdim("yukleniyor");
     yukleniyorRef.current = true;
-    dosyaYuklemeBaslat(id);
+    await tekDosyaYukle(d);
   }
 
   function sifirla() {
-    tumZamanlayicilariTemizle();
     dosyalar.forEach((d) => d.onizleme && URL.revokeObjectURL(d.onizleme));
     yukleniyorRef.current = false;
     setDosyalar([]);
@@ -364,7 +355,6 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  // Etkinlik arşivlenmişse yükleme kapalı: net bilgi göster.
   if (kapali) {
     return (
       <div className="rounded-3xl border border-border bg-card p-10 text-center shadow-elegant">
@@ -375,8 +365,7 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
           Yükleme kapandı
         </h3>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-          Bu etkinlik arşivlendi. Yeni anı yüklenemiyor, ancak paylaşılan anıları
-          görüntülemeye devam edebilirsiniz.
+          Bu etkinlik arşivlendi; yeni anı yüklenemiyor.
         </p>
       </div>
     );
@@ -397,17 +386,12 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
         >
           <CheckCircle2 className="h-9 w-9" />
         </motion.div>
-        <h3 className="font-display mt-5 text-xl font-semibold">
-          Teşekkürler! 💛
-        </h3>
+        <h3 className="font-display mt-5 text-xl font-semibold">Teşekkürler! 💛</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          {basariliSayisi} anınız başarıyla yüklendi. Çiftin galerisinde yerini
-          aldı.
+          {basarili} anınız başarıyla yüklendi.
         </p>
-        {hataliSayisi > 0 && (
-          <p className="mt-2 text-sm text-rose">
-            {hataliSayisi} dosya yüklenemedi.
-          </p>
+        {hatali > 0 && (
+          <p className="mt-2 text-sm text-rose">{hatali} dosya yüklenemedi.</p>
         )}
         <Button className="mt-6" variant="soft" onClick={sifirla}>
           Yeni Anı Yükle
@@ -416,10 +400,21 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
     );
   }
 
-  const yuklemeSuruyor = adim === "yukleniyor";
+  const suruyor = adim === "yukleniyor";
 
   return (
     <div>
+      <div className="mb-4">
+        <label className="text-sm font-medium">Adınız (isteğe bağlı)</label>
+        <input
+          value={isim}
+          onChange={(e) => setIsim(e.target.value)}
+          placeholder="Örn. Ayşe Kaya"
+          disabled={suruyor}
+          className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary disabled:opacity-60"
+        />
+      </div>
+
       <input
         ref={inputRef}
         type="file"
@@ -427,28 +422,28 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
         accept="image/*,video/*"
         aria-label="Fotoğraf ve video seç"
         className="hidden"
-        disabled={yuklemeSuruyor}
+        disabled={suruyor}
         onChange={(e) => dosyaSec(e.target.files)}
       />
       <button
         type="button"
-        onClick={() => !yuklemeSuruyor && inputRef.current?.click()}
-        disabled={yuklemeSuruyor}
-        aria-label="Fotoğraf ve video yüklemek için dosya seç"
-        aria-busy={yuklemeSuruyor}
+        onClick={() => !suruyor && inputRef.current?.click()}
+        disabled={suruyor}
         className="glass group flex w-full flex-col items-center rounded-3xl border-2 border-dashed border-primary/30 px-6 py-14 text-center transition-colors hover:border-primary/60 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <motion.span
-          animate={yuklemeSuruyor ? { y: 0 } : { y: [0, -8, 0] }}
+          animate={suruyor ? { y: 0 } : { y: [0, -8, 0] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
           className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-elegant"
         >
-          <UploadCloud className="h-8 w-8" />
+          {suruyor ? (
+            <Loader2 className="h-8 w-8 animate-spin" />
+          ) : (
+            <UploadCloud className="h-8 w-8" />
+          )}
         </motion.span>
         <p className="font-display mt-5 text-lg font-semibold">
-          {yuklemeSuruyor
-            ? "Yükleniyor…"
-            : "Fotoğraf & video yüklemek için dokunun"}
+          {suruyor ? "Yükleniyor…" : "Fotoğraf & video yüklemek için dokunun"}
         </p>
         <p className="mt-1.5 text-sm text-muted-foreground">
           En fazla {MAKS_DOSYA_ADET} dosya · dosya başına 50 MB
@@ -463,7 +458,6 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
         </div>
       </button>
 
-      {/* Reddedilen dosyalar için net uyarı */}
       <AnimatePresence>
         {reddedilenler.length > 0 && (
           <motion.div
@@ -517,34 +511,21 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
                     <p className="text-xs text-muted-foreground">
                       {bytKbMb(d.boyut)}
                     </p>
-                    {d.durum === "hata" ? (
-                      <p className="mt-1 text-xs text-rose">
-                        {d.hata ?? "Yükleme başarısız."}
-                      </p>
-                    ) : (
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                        <motion.div
-                          className="h-full rounded-full bg-gradient-to-r from-accent to-primary"
-                          animate={{ width: `${d.ilerleme}%` }}
-                          transition={{ ease: "easeOut" }}
-                        />
-                      </div>
-                    )}
                   </div>
-                  <span className="flex w-10 shrink-0 items-center justify-end text-right text-xs font-medium text-muted-foreground">
+                  <span className="flex w-8 shrink-0 items-center justify-end">
                     {d.durum === "tamam" ? (
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
                     ) : d.durum === "hata" ? (
                       <button
                         type="button"
-                        onClick={() => yeniden(d.id)}
-                        aria-label={`${d.ad} dosyasını tekrar yükle`}
+                        onClick={() => yeniden(d)}
+                        aria-label="Tekrar yükle"
                         className="rounded-full p-1 text-rose hover:bg-rose/10"
                       >
                         <RotateCw className="h-4 w-4" />
                       </button>
                     ) : (
-                      `${Math.round(d.ilerleme)}%`
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     )}
                   </span>
                 </div>
@@ -557,170 +538,250 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
   );
 }
 
-/* ----------------------- Anı Defteri ----------------------- */
-function AniDefteriAlani() {
-  const [mesaj, setMesaj] = useState("");
+/* ----------------------- Anı Bırak (yazı + ses, gerçek) ----------------------- */
+function AniBirak({
+  eventId,
+  slug,
+  kapali,
+}: {
+  eventId: string;
+  slug: string;
+  kapali: boolean;
+}) {
   const [isim, setIsim] = useState("");
+  const [mesaj, setMesaj] = useState("");
   const [gonderildi, setGonderildi] = useState(false);
+  const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [hata, setHata] = useState<string | null>(null);
+
+  // Ses kaydı
   const [kayitta, setKayitta] = useState(false);
+  const [sesBlob, setSesBlob] = useState<Blob | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const parcalarRef = useRef<Blob[]>([]);
+
+  useEffect(() => {
+    return () => {
+      // Unmount'ta kaydı durdur.
+      if (recorderRef.current && recorderRef.current.state !== "inactive") {
+        recorderRef.current.stop();
+        recorderRef.current.stream.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  async function kaydiBaslat() {
+    setHata(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      parcalarRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) parcalarRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        const blob = new Blob(parcalarRef.current, {
+          type: rec.mimeType || "audio/webm",
+        });
+        setSesBlob(blob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setKayitta(true);
+    } catch {
+      setHata("Mikrofona erişilemedi. İzin verdiğinizden emin olun.");
+    }
+  }
+
+  function kaydiDurdur() {
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+    setKayitta(false);
+  }
+
+  async function gonder() {
+    if (gonderiliyor) return;
+    setHata(null);
+    const ad = isim.trim();
+    const metin = mesaj.trim();
+    if (!metin && !sesBlob) {
+      setHata("Lütfen bir mesaj yazın veya sesli anı bırakın.");
+      return;
+    }
+    setGonderiliyor(true);
+    try {
+      const supabase = createClient();
+      let sesPath: string | null = null;
+
+      if (sesBlob) {
+        sesPath = `${eventId}/${crypto.randomUUID()}.webm`;
+        const { error: upErr } = await supabase.storage
+          .from(SES_BUCKET)
+          .upload(sesPath, sesBlob, {
+            contentType: sesBlob.type || "audio/webm",
+            upsert: false,
+          });
+        if (upErr) throw upErr;
+      }
+
+      const { error: rpcErr } = await supabase.rpc("misafir_ani_ekle", {
+        p_slug: slug,
+        p_guest_name: ad || null,
+        p_message_text: metin || null,
+        p_audio_path: sesPath,
+      });
+      if (rpcErr) throw rpcErr;
+
+      setGonderildi(true);
+    } catch {
+      setHata("Anı gönderilemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setGonderiliyor(false);
+    }
+  }
+
+  if (kapali) {
+    return (
+      <div className="rounded-3xl border border-border bg-card p-10 text-center shadow-elegant">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <Lock className="h-8 w-8" />
+        </div>
+        <h3 className="font-display mt-5 text-xl font-semibold">Anı defteri kapalı</h3>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+          Bu etkinlik arşivlendi; yeni anı bırakılamıyor.
+        </p>
+      </div>
+    );
+  }
+
+  if (gonderildi) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="rounded-3xl border border-border bg-card p-10 text-center shadow-elegant"
+      >
+        <CheckCircle2 className="mx-auto h-10 w-10 text-primary" />
+        <h3 className="font-display mt-4 text-xl font-semibold">
+          Anınız eklendi 💛
+        </h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Paylaştığınız için teşekkürler!
+        </p>
+        <Button
+          className="mt-6"
+          variant="soft"
+          onClick={() => {
+            setGonderildi(false);
+            setMesaj("");
+            setSesBlob(null);
+          }}
+        >
+          Yeni Anı Bırak
+        </Button>
+      </motion.div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-elegant">
-        <h3 className="font-display text-lg font-semibold">Bir not bırakın</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Çifte içten dileklerinizi yazın veya sesli mesaj bırakın.
-        </p>
+    <div className="rounded-3xl border border-border bg-card p-6 shadow-elegant">
+      <h3 className="font-display text-lg font-semibold">Bir not bırakın</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        İçten dileklerinizi yazın veya sesli bir mesaj bırakın.
+      </p>
 
-        {gonderildi ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="mt-5 rounded-2xl bg-primary-soft p-5 text-center"
+      <input
+        value={isim}
+        onChange={(e) => setIsim(e.target.value)}
+        placeholder="Adınız (isteğe bağlı)"
+        className="mt-5 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
+      />
+      <textarea
+        value={mesaj}
+        onChange={(e) => setMesaj(e.target.value)}
+        placeholder="Dileğinizi buraya yazın..."
+        rows={4}
+        className="mt-3 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
+      />
+
+      {sesBlob && (
+        <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
+          <Mic className="h-4 w-4 shrink-0 text-primary" />
+          <audio
+            src={URL.createObjectURL(sesBlob)}
+            controls
+            className="h-8 w-full"
+          />
+          <button
+            type="button"
+            onClick={() => setSesBlob(null)}
+            className="shrink-0 text-xs text-rose hover:underline"
           >
-            <CheckCircle2 className="mx-auto h-7 w-7 text-primary" />
-            <p className="mt-2 text-sm font-medium text-primary-deep">
-              Anınız deftere eklendi, teşekkürler!
-            </p>
-          </motion.div>
-        ) : (
-          <>
-            <input
-              value={isim}
-              onChange={(e) => setIsim(e.target.value)}
-              placeholder="Adınız Soyadınız"
-              className="mt-5 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
-            />
-            <textarea
-              value={mesaj}
-              onChange={(e) => setMesaj(e.target.value)}
-              placeholder="Dileğinizi buraya yazın..."
-              rows={4}
-              className="mt-3 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
-            />
-            <div className="mt-4 flex items-center gap-3">
-              <Button
-                className="flex-1"
-                onClick={() => setGonderildi(true)}
-                disabled={!mesaj.trim() || !isim.trim()}
-              >
-                <PenLine className="h-4 w-4" />
-                Gönder
-              </Button>
-              <button
-                onClick={() => setKayitta((v) => !v)}
-                className={`flex h-11 items-center gap-2 rounded-full px-5 text-sm font-medium transition-colors ${
-                  kayitta
-                    ? "bg-rose text-white"
-                    : "border border-primary/40 text-foreground hover:bg-primary-soft/50"
-                }`}
-              >
-                {kayitta ? (
-                  <>
-                    <Square className="h-3.5 w-3.5 fill-current" /> Durdur
-                  </>
-                ) : (
-                  <>
-                    <Mic className="h-4 w-4" /> Sesli
-                  </>
-                )}
-              </button>
-            </div>
-            {kayitta && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-4 flex items-center justify-center gap-1.5"
-              >
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <motion.span
-                    key={i}
-                    className="w-1 rounded-full bg-rose"
-                    animate={{ height: [6, Math.random() * 26 + 8, 6] }}
-                    transition={{
-                      duration: 0.7,
-                      repeat: Infinity,
-                      delay: i * 0.05,
-                    }}
-                  />
-                ))}
-              </motion.div>
+            Sil
+          </button>
+        </div>
+      )}
+
+      {hata && (
+        <p className="mt-3 rounded-xl bg-rose-soft px-4 py-2.5 text-xs font-medium text-rose">
+          {hata}
+        </p>
+      )}
+
+      <div className="mt-4 flex items-center gap-3">
+        <Button
+          className="flex-1"
+          onClick={gonder}
+          disabled={gonderiliyor || (!mesaj.trim() && !sesBlob)}
+        >
+          {gonderiliyor ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <PenLine className="h-4 w-4" />
+          )}
+          Gönder
+        </Button>
+        {!sesBlob && (
+          <button
+            type="button"
+            onClick={kayitta ? kaydiDurdur : kaydiBaslat}
+            className={`flex h-11 items-center gap-2 rounded-full px-5 text-sm font-medium transition-colors ${
+              kayitta
+                ? "bg-rose text-white"
+                : "border border-primary/40 text-foreground hover:bg-primary-soft/50"
+            }`}
+          >
+            {kayitta ? (
+              <>
+                <Square className="h-3.5 w-3.5 fill-current" /> Durdur
+              </>
+            ) : (
+              <>
+                <Mic className="h-4 w-4" /> Sesli
+              </>
             )}
-          </>
+          </button>
         )}
       </div>
 
-      {/* Önceki notlar */}
-      <div className="space-y-3">
-        <h4 className="font-display px-1 text-sm font-semibold text-muted-foreground">
-          Diğer misafirlerden
-        </h4>
-        {aniDefteri.map((a) => (
-          <div
-            key={a.id}
-            className="rounded-2xl border border-border bg-card p-5"
-          >
-            <div className="flex items-center justify-between">
-              <p className="font-display font-semibold">{a.guest_name}</p>
-              <span className="text-xs text-muted-foreground">
-                {formatSaatGuvenli(a.created_at)}
-              </span>
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-foreground/80">
-              {a.message}
-            </p>
-            {a.has_audio && (
-              <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                <Mic className="h-3.5 w-3.5 text-primary" /> Sesli mesaj · 0:14
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ----------------------- Sosyal Akış ----------------------- */
-function SosyalAkis() {
-  const [begeniler, setBegeniler] = useState<Record<string, boolean>>({});
-  const oran: Record<string, string> = {
-    dikey: "aspect-[3/4]",
-    kare: "aspect-square",
-    yatay: "aspect-[4/3]",
-  };
-
-  return (
-    <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3">
-      {medyaListesi
-        .filter((m) => m.status === "onaylandi")
-        .map((m) => {
-          const begenildi = begeniler[m.id];
-          return (
-            <div key={m.id} className="mb-4 break-inside-avoid">
-              <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-                <div
-                  className={`relative ${oran[m.ratio]} w-full bg-gradient-to-br ${m.tone}`}
-                >
-                  <button
-                    onClick={() =>
-                      setBegeniler((p) => ({ ...p, [m.id]: !p[m.id] }))
-                    }
-                    className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/25 px-2.5 py-1 text-xs font-medium text-white backdrop-blur"
-                  >
-                    <Heart
-                      className={`h-3.5 w-3.5 ${begenildi ? "fill-rose text-rose" : ""}`}
-                    />
-                    {m.likes + (begenildi ? 1 : 0)}
-                  </button>
-                </div>
-                <p className="px-3 py-2 text-xs text-muted-foreground">
-                  {m.guest_name}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+      {kayitta && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-4 flex items-center justify-center gap-1.5"
+        >
+          {Array.from({ length: 24 }).map((_, i) => (
+            <motion.span
+              key={i}
+              className="w-1 rounded-full bg-rose"
+              animate={{ height: [6, Math.random() * 26 + 8, 6] }}
+              transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.05 }}
+            />
+          ))}
+        </motion.div>
+      )}
     </div>
   );
 }

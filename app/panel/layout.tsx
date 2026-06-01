@@ -34,9 +34,9 @@ export default function PanelLayout({
               <Bell className="h-[18px] w-[18px]" />
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose" />
             </button>
-            <ButtonLink href="/panel/etkinlikler/yeni" size="sm">
+            <ButtonLink href="/panel/oda/yeni" size="sm">
               <Plus className="h-4 w-4" />
-              Yeni Etkinlik
+              Yeni Oda
             </ButtonLink>
           </div>
         </header>
