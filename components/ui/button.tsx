@@ -13,7 +13,7 @@ const variants: Record<Variant, string> = {
   outline:
     "border border-primary/40 text-foreground hover:border-primary hover:bg-primary-soft/50",
   ghost: "text-foreground/80 hover:text-foreground hover:bg-muted",
-  soft: "bg-primary-soft text-[#9c7740] hover:bg-primary-soft/70",
+  soft: "bg-primary-soft text-primary-deep hover:bg-primary-soft/70",
 };
 
 const sizes: Record<Size, string> = {

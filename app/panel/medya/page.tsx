@@ -94,7 +94,7 @@ export default function MedyaPage() {
         <div className="sticky top-20 z-20 mt-5 flex items-center justify-between rounded-2xl border border-primary/30 bg-card px-5 py-3 shadow-elegant">
           <span className="text-sm font-medium">{secili.size} öğe seçildi</span>
           <div className="flex gap-2">
-            <button className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-4 py-2 text-sm font-medium text-[#9c7740] hover:bg-primary-soft/70">
+            <button className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-4 py-2 text-sm font-medium text-primary-deep hover:bg-primary-soft/70">
               <CheckCircle2 className="h-4 w-4" /> Onayla
             </button>
             <button className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-muted">

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
+import { TEMA_FLASH_SCRIPT } from "@/lib/temalar";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -29,7 +30,12 @@ export default function RootLayout({
     <html
       lang="tr"
       className={`${playfair.variable} ${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Tema flash'ını önle: React boyamadan önce data-theme'i ayarla */}
+        <script dangerouslySetInnerHTML={{ __html: TEMA_FLASH_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
       </body>

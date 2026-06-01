@@ -112,7 +112,7 @@ export function AuthForm({ mod }: { mod: Mod }) {
           transition={{ duration: 0.7 }}
           className="max-w-md"
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/60 px-4 py-1.5 text-xs font-medium text-[#9c7740]">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/60 px-4 py-1.5 text-xs font-medium text-primary-deep">
             <Sparkles className="h-3.5 w-3.5" />
             Premium etkinlik anı platformu
           </span>
@@ -216,7 +216,7 @@ export function AuthForm({ mod }: { mod: Mod }) {
                   type="button"
                   onClick={sifreSifirla}
                   disabled={yukleniyor}
-                  className="text-xs text-[#9c7740] hover:underline disabled:opacity-60"
+                  className="text-xs text-primary-deep hover:underline disabled:opacity-60"
                 >
                   Şifremi unuttum
                 </button>
@@ -239,7 +239,7 @@ export function AuthForm({ mod }: { mod: Mod }) {
                 Hesabınız yok mu?{" "}
                 <Link
                   href="/kayit"
-                  className="font-medium text-[#9c7740] hover:underline"
+                  className="font-medium text-primary-deep hover:underline"
                 >
                   Kayıt olun
                 </Link>
@@ -249,7 +249,7 @@ export function AuthForm({ mod }: { mod: Mod }) {
                 Zaten hesabınız var mı?{" "}
                 <Link
                   href="/giris"
-                  className="font-medium text-[#9c7740] hover:underline"
+                  className="font-medium text-primary-deep hover:underline"
                 >
                   Giriş yapın
                 </Link>

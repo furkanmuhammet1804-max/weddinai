@@ -20,7 +20,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/60 px-4 py-1.5 text-xs font-medium text-[#9c7740] shadow-sm"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/60 px-4 py-1.5 text-xs font-medium text-primary-deep shadow-sm"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Türkiye&apos;nin en zarif etkinlik anı platformu

@@ -1,6 +1,7 @@
 import { Bell, Plus } from "lucide-react";
 import { Sidebar, MobilMenu } from "@/components/dashboard/sidebar";
 import { ButtonLink } from "@/components/ui/button";
+import { TemaSecici } from "@/components/theme/tema-secici";
 
 export default function PanelLayout({
   children,
@@ -23,6 +24,9 @@ export default function PanelLayout({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <div className="hidden sm:block">
+              <TemaSecici />
+            </div>
             <button
               className="relative rounded-full border border-border p-2.5 text-foreground/70 transition-colors hover:border-primary hover:text-primary"
               aria-label="Bildirimler"

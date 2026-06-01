@@ -95,7 +95,7 @@ export function GuestApp({
           <motion.span
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/70 px-4 py-1.5 text-xs font-medium text-[#9c7740]"
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-card/70 px-4 py-1.5 text-xs font-medium text-primary-deep"
           >
             <Sparkles className="h-3.5 w-3.5" />
             {ETKINLIK_TURU_ETIKET[etkinlik.event_type]}
@@ -498,7 +498,7 @@ function YuklemeAlani({ kapali }: { kapali: boolean }) {
                 className="glass rounded-2xl border border-border/60 p-4"
               >
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-soft text-[#9c7740]">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary-soft text-primary-deep">
                     {d.onizleme ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -579,7 +579,7 @@ function AniDefteriAlani() {
             className="mt-5 rounded-2xl bg-primary-soft p-5 text-center"
           >
             <CheckCircle2 className="mx-auto h-7 w-7 text-primary" />
-            <p className="mt-2 text-sm font-medium text-[#9c7740]">
+            <p className="mt-2 text-sm font-medium text-primary-deep">
               Anınız deftere eklendi, teşekkürler!
             </p>
           </motion.div>

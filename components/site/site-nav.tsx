@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { Logo } from "./logo";
 import { ButtonLink } from "@/components/ui/button";
+import { TemaSecici } from "@/components/theme/tema-secici";
 
 const baglantilar = [
   { href: "/#ozellikler", label: "Özellikler" },
@@ -36,6 +37,8 @@ export function SiteNav() {
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
+            <TemaSecici />
+            <span className="h-5 w-px bg-border" aria-hidden />
             <ButtonLink href="/giris" variant="ghost" size="sm">
               Giriş Yap
             </ButtonLink>
@@ -73,6 +76,12 @@ export function SiteNav() {
                   {b.label}
                 </Link>
               ))}
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2.5">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Renk teması
+                </span>
+                <TemaSecici />
+              </div>
               <div className="mt-2 flex gap-2">
                 <ButtonLink href="/giris" variant="outline" size="sm" className="flex-1">
                   Giriş Yap

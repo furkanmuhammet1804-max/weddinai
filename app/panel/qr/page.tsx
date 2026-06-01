@@ -232,7 +232,7 @@ export default function QrPage() {
               <h3 className="font-display text-xl font-semibold">
                 {etkinlik.title}
               </h3>
-              <p className="mt-1 text-xs text-[#9c7740]">
+              <p className="mt-1 text-xs text-primary-deep">
                 Anılarınızı bizimle paylaşın
               </p>
               {dataUrl ? (

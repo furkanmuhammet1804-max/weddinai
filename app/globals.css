@@ -19,12 +19,91 @@
   --primary: #b8915a; /* şampanya altını */
   --primary-foreground: #ffffff;
   --primary-soft: #f3e9d8;
+  --primary-deep: #9c7740; /* koyu altın — metin vurguları */
   --accent: #c9a36a; /* açık altın */
   --rose: #e3c7c0; /* pudra gül */
   --rose-soft: #f7ecea;
 
   --ring: #c9a36a;
   --radius: 1rem;
+}
+
+/* =============================================================
+   TEMA PALETLERİ — <html data-theme="..."> ile değişir.
+   Yalnızca renk değişkenleri override edilir; tüm dekoratif
+   stiller (aura, gradyan, gölge) bu değişkenlerden türediği için
+   tema değişince her şey uyum içinde döner.
+   ============================================================= */
+[data-theme="turkuaz"] {
+  --background: #f4fbfb;
+  --foreground: #19292b;
+  --card: #ffffff;
+  --card-foreground: #19292b;
+  --muted: #e6f4f3;
+  --muted-foreground: #5e7a79;
+  --border: #d6ebe9;
+  --primary: #0fb5ae;
+  --primary-foreground: #ffffff;
+  --primary-soft: #dff5f3;
+  --primary-deep: #0a6e74;
+  --accent: #1fc8c0;
+  --rose: #bfe6e2;
+  --rose-soft: #e7f6f4;
+  --ring: #1fc8c0;
+}
+
+[data-theme="zumrut"] {
+  --background: #f5faf6;
+  --foreground: #1b2a22;
+  --card: #ffffff;
+  --card-foreground: #1b2a22;
+  --muted: #e4f1e9;
+  --muted-foreground: #5f7a6b;
+  --border: #d4e9dc;
+  --primary: #10915e;
+  --primary-foreground: #ffffff;
+  --primary-soft: #dbf2e6;
+  --primary-deep: #0a5e3d;
+  --accent: #1ba86f;
+  --rose: #c3e6d2;
+  --rose-soft: #e6f5ec;
+  --ring: #1ba86f;
+}
+
+[data-theme="gul"] {
+  --background: #fdf7f6;
+  --foreground: #2b1f1e;
+  --card: #ffffff;
+  --card-foreground: #2b1f1e;
+  --muted: #f6e8e7;
+  --muted-foreground: #8c7370;
+  --border: #efdcda;
+  --primary: #d2737a;
+  --primary-foreground: #ffffff;
+  --primary-soft: #f9e7e7;
+  --primary-deep: #a8525a;
+  --accent: #e08e92;
+  --rose: #f0c9cb;
+  --rose-soft: #fbeceb;
+  --ring: #e08e92;
+}
+
+[data-theme="gece"] {
+  --background: #f6f8fd;
+  --foreground: #1a2030;
+  --card: #ffffff;
+  --card-foreground: #1a2030;
+  --muted: #e8ecf9;
+  --muted-foreground: #69718c;
+  --border: #dae0f4;
+  --primary: #3b5bdb;
+  --primary-foreground: #ffffff;
+  --primary-soft: #e3e8fb;
+  --primary-deep: #2b3f9e;
+  --accent: #5570e8;
+  --rose: #cdd6f6;
+  --rose-soft: #e9edfb;
+  --ring: #5570e8;
 }
 
 @theme inline {
@@ -38,6 +117,7 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-soft: var(--primary-soft);
+  --color-primary-deep: var(--primary-deep);
   --color-accent: var(--accent);
   --color-rose: var(--rose);
   --color-rose-soft: var(--rose-soft);
@@ -72,20 +152,25 @@ body {
   font-family: var(--font-serif), Georgia, serif;
 }
 
-/* Altın gradyan metin */
+/* Aksan gradyan metin (tema rengine göre döner) */
 .text-gradient-gold {
-  background: linear-gradient(120deg, #c9a36a 0%, #b8915a 45%, #9c7740 100%);
+  background: linear-gradient(
+    120deg,
+    var(--accent) 0%,
+    var(--primary) 45%,
+    var(--primary-deep) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* Yumuşak arka plan dokusu (ışıltı) */
+/* Yumuşak arka plan dokusu (ışıltı) — tema aksanından türer */
 .bg-aura {
   background:
-    radial-gradient(60% 50% at 15% 10%, rgba(201, 163, 106, 0.16) 0%, transparent 60%),
-    radial-gradient(55% 45% at 90% 5%, rgba(227, 199, 192, 0.22) 0%, transparent 55%),
-    radial-gradient(50% 50% at 50% 100%, rgba(201, 163, 106, 0.1) 0%, transparent 60%);
+    radial-gradient(60% 50% at 15% 10%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 60%),
+    radial-gradient(55% 45% at 90% 5%, color-mix(in srgb, var(--rose) 28%, transparent) 0%, transparent 55%),
+    radial-gradient(50% 50% at 50% 100%, color-mix(in srgb, var(--accent) 12%, transparent) 0%, transparent 60%);
 }
 
 /* Glassmorphism kart */
@@ -96,9 +181,11 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
-/* İnce premium gölge */
+/* İnce premium gölge — tema aksanının yumuşak halesi */
 .shadow-elegant {
-  box-shadow: 0 1px 2px rgba(43, 37, 33, 0.04), 0 12px 40px -12px rgba(156, 119, 64, 0.22);
+  box-shadow:
+    0 1px 2px rgba(20, 18, 16, 0.04),
+    0 12px 40px -12px color-mix(in srgb, var(--primary) 32%, transparent);
 }
 
 /* İnce kesik çizgi (divider) */
@@ -108,7 +195,7 @@ body {
 }
 
 ::selection {
-  background: rgba(201, 163, 106, 0.3);
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 /* İnce kaydırma çubuğu */
@@ -117,10 +204,23 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d9ccb8;
+  background: color-mix(in srgb, var(--accent) 38%, var(--muted));
   border-radius: 9999px;
   border: 2px solid var(--background);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
+}
+
+/* Tema geçişi — yalnızca değiştirme anında yumuşak animasyon (kalıcı jank yok) */
+html.tema-gecis,
+html.tema-gecis *,
+html.tema-gecis *::before,
+html.tema-gecis *::after {
+  transition:
+    background-color 0.45s ease,
+    border-color 0.45s ease,
+    color 0.45s ease,
+    fill 0.45s ease,
+    box-shadow 0.45s ease !important;
 }

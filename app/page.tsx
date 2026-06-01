@@ -96,7 +96,7 @@ export default function Home() {
         {/* ÖZELLİKLER */}
         <section id="ozellikler" className="mx-auto max-w-7xl px-5 py-20 sm:px-8">
           <Reveal className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-medium uppercase tracking-widest text-[#9c7740]">
+            <p className="text-sm font-medium uppercase tracking-widest text-primary-deep">
               Özellikler
             </p>
             <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -113,7 +113,7 @@ export default function Home() {
               return (
                 <Reveal key={o.baslik} delay={i * 0.07}>
                   <div className="group h-full rounded-2xl border border-border bg-card p-7 transition-all duration-300 hover:-translate-y-1 hover:shadow-elegant">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-[#9c7740] transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-soft text-primary-deep transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                       <Icon className="h-6 w-6" />
                     </span>
                     <h3 className="font-display mt-5 text-lg font-semibold">
@@ -133,7 +133,7 @@ export default function Home() {
         <section id="nasil-calisir" className="bg-card/60 py-20">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
             <Reveal className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-medium uppercase tracking-widest text-[#9c7740]">
+              <p className="text-sm font-medium uppercase tracking-widest text-primary-deep">
                 Nasıl Çalışır
               </p>
               <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -170,7 +170,7 @@ export default function Home() {
         {/* ETKİNLİK TÜRLERİ */}
         <section id="etkinlikler" className="mx-auto max-w-7xl px-5 py-20 sm:px-8">
           <Reveal className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-medium uppercase tracking-widest text-[#9c7740]">
+            <p className="text-sm font-medium uppercase tracking-widest text-primary-deep">
               Her An İçin
             </p>
             <h2 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">

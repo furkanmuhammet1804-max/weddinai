@@ -92,7 +92,7 @@ export function EtkinlikSihirbazi() {
           <span className="font-medium text-foreground">{baslik}</span> artık
           yayında. Misafir bağlantınız hazır:
         </p>
-        <div className="mt-4 rounded-xl bg-muted px-4 py-3 text-sm text-[#9c7740]">
+        <div className="mt-4 rounded-xl bg-muted px-4 py-3 text-sm text-primary-deep">
           weddinai.com/e/{slug}
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -227,7 +227,7 @@ export function EtkinlikSihirbazi() {
                   <div className="mt-4 flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-xs text-muted-foreground">
                     <CalendarHeart className="h-3.5 w-3.5 text-primary" />
                     Bağlantınız:{" "}
-                    <span className="font-medium text-[#9c7740]">
+                    <span className="font-medium text-primary-deep">
                       weddinai.com/e/{slug}
                     </span>
                   </div>

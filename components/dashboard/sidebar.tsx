@@ -65,7 +65,7 @@ function NavIcerik({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/panel/ayarlar"
           onClick={onNavigate}
-          className="mt-3 inline-flex text-xs font-medium text-[#9c7740] hover:underline"
+          className="mt-3 inline-flex text-xs font-medium text-primary-deep hover:underline"
         >
           Profesyonel&apos;e geç →
         </Link>

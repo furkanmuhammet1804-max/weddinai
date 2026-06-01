@@ -76,7 +76,7 @@ export default function PanelPage() {
               className="rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-elegant"
             >
               <div className="flex items-center justify-between">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-[#9c7740]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary-deep">
                   <Icon className="h-5 w-5" />
                 </span>
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600">
@@ -136,7 +136,7 @@ export default function PanelPage() {
           <p className="text-sm text-muted-foreground">Onay bekleyen içerik</p>
 
           <div className="mt-5 flex items-center gap-4 rounded-2xl bg-primary-soft/50 p-5">
-            <span className="font-display text-4xl font-semibold text-[#9c7740]">
+            <span className="font-display text-4xl font-semibold text-primary-deep">
               {panelIstatistik.bekleyenOnay}
             </span>
             <div className="text-sm">
@@ -167,7 +167,7 @@ export default function PanelPage() {
             <h2 className="font-display text-lg font-semibold">Etkinlikler</h2>
             <Link
               href="/panel/etkinlikler"
-              className="text-xs font-medium text-[#9c7740] hover:underline"
+              className="text-xs font-medium text-primary-deep hover:underline"
             >
               Tümü
             </Link>
@@ -178,7 +178,7 @@ export default function PanelPage() {
                 key={e.id}
                 className="flex items-center gap-3 rounded-xl border border-border p-3"
               >
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-[#9c7740]">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-soft text-primary-deep">
                   <CalendarHeart className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -216,7 +216,7 @@ export default function PanelPage() {
             </h2>
             <Link
               href="/panel/medya"
-              className="inline-flex items-center gap-1 text-xs font-medium text-[#9c7740] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary-deep hover:underline"
             >
               Medya Merkezi <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
