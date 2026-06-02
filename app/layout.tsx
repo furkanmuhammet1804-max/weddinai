@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { TEMA_FLASH_SCRIPT } from "@/lib/temalar";
@@ -19,6 +19,15 @@ export const metadata: Metadata = {
   title: "WeddinAI — Etkinlik Anılarınız Tek Bir Bulutta",
   description:
     "Düğün, nişan, kına ve kurumsal etkinlikleriniz için premium QR kod ile fotoğraf, video ve anı defteri toplama platformu. Misafirleriniz uygulama indirmeden saniyeler içinde anılarını paylaşsın.",
+};
+
+// Mobil-öncelikli: device-width + iPhone çentik/güvenli alan (env() için
+// viewportFit cover şart) + marka rengi tarayıcı çubuğu.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#b08d57",
 };
 
 export default function RootLayout({

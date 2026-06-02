@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Images,
@@ -13,12 +13,41 @@ import {
   Mic,
   Camera,
   CheckCircle2,
+  Download,
+  CheckSquare,
+  Square,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import JSZip from "jszip";
 import type { OdaBilgi, OdaMedya, OdaAni } from "@/lib/oda/veri";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
 type Sekme = "anilar" | "defter";
+
+// Bir medyanın indirme dosya adını üretir (sıra-no + isim + uzantı).
+function dosyaAdi(m: OdaMedya, i: number): string {
+  let ext = m.file_type === "video" ? "mp4" : "jpg";
+  try {
+    const p = new URL(m.url ?? "").pathname;
+    const nokta = p.lastIndexOf(".");
+    if (nokta >= 0) {
+      const e = p.slice(nokta + 1).toLowerCase();
+      if (/^[a-z0-9]{2,5}$/.test(e)) ext = e;
+    }
+  } catch {
+    /* yoksay */
+  }
+  const ad =
+    (m.guest_name ?? "ani")
+      .replace(/[^\p{L}\p{N} _-]/gu, "")
+      .trim()
+      .slice(0, 30) || "ani";
+  return `${String(i + 1).padStart(3, "0")}-${ad}.${ext}`;
+}
 
 export function MusteriPanel({
   slug,
@@ -35,6 +64,21 @@ export function MusteriPanel({
   const [sekme, setSekme] = useState<Sekme>("anilar");
   const [liste, setListe] = useState<OdaMedya[]>(medyalar);
   const [cikis, setCikis] = useState(false);
+  const [yenileniyor, setYenileniyor] = useState(false);
+
+  // Seçim & indirme & lightbox
+  const [secimModu, setSecimModu] = useState(false);
+  const [secili, setSecili] = useState<Set<string>>(new Set());
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const [indirme, setIndirme] = useState<{
+    yapilan: number;
+    toplam: number;
+  } | null>(null);
+
+  // Props değişince (router.refresh sonrası) listeyi tazele
+  useEffect(() => {
+    setListe(medyalar);
+  }, [medyalar]);
 
   const fotoSayi = liste.filter((m) => m.file_type === "fotograf").length;
   const videoSayi = liste.filter((m) => m.file_type === "video").length;
@@ -51,6 +95,103 @@ export function MusteriPanel({
     router.refresh();
   }
 
+  function yenile() {
+    if (yenileniyor) return;
+    setYenileniyor(true);
+    router.refresh();
+    // Görsel geri bildirim için kısa süre sonra kapat
+    setTimeout(() => setYenileniyor(false), 1200);
+  }
+
+  // ---- İndirme ----
+  const tekBlobIndir = useCallback(async (m: OdaMedya, i: number) => {
+    if (!m.url) return;
+    const res = await fetch(m.url);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = dosyaAdi(m, i);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const tekIndir = useCallback(
+    async (m: OdaMedya, i: number) => {
+      setIndirme({ yapilan: 0, toplam: 1 });
+      try {
+        await tekBlobIndir(m, i);
+      } catch {
+        /* sessiz */
+      }
+      setIndirme(null);
+    },
+    [tekBlobIndir],
+  );
+
+  const topluIndir = useCallback(
+    async (medias: OdaMedya[]) => {
+      const indirilecek = medias.filter((m) => m.url);
+      if (indirilecek.length === 0) return;
+      // Tek dosyaysa düz indir (zip'e gerek yok).
+      if (indirilecek.length === 1) {
+        await tekIndir(indirilecek[0], 0);
+        return;
+      }
+      setIndirme({ yapilan: 0, toplam: indirilecek.length });
+      try {
+        const zip = new JSZip();
+        for (let i = 0; i < indirilecek.length; i++) {
+          const m = indirilecek[i];
+          try {
+            const res = await fetch(m.url!);
+            zip.file(dosyaAdi(m, i), await res.blob());
+          } catch {
+            /* o dosyayı atla */
+          }
+          setIndirme({ yapilan: i + 1, toplam: indirilecek.length });
+        }
+        const blob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${slug}-anilar.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch {
+        /* sessiz */
+      }
+      setIndirme(null);
+    },
+    [slug, tekIndir],
+  );
+
+  function secimToggle(id: string) {
+    setSecili((o) => {
+      const y = new Set(o);
+      if (y.has(id)) y.delete(id);
+      else y.add(id);
+      return y;
+    });
+  }
+
+  function tumunuSec() {
+    setSecili(new Set(liste.map((m) => m.id)));
+  }
+  function secimiTemizle() {
+    setSecili(new Set());
+  }
+  function secimModuKapat() {
+    setSecimModu(false);
+    setSecili(new Set());
+  }
+
+  const seciliMedyalar = liste.filter((m) => secili.has(m.id));
+
   return (
     <div className="min-h-screen bg-background">
       {/* Üst bar */}
@@ -65,19 +206,33 @@ export function MusteriPanel({
               {bilgi.title}
             </h1>
           </div>
-          <button
-            type="button"
-            onClick={cikisYap}
-            disabled={cikis}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
-          >
-            {cikis ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LogOut className="h-4 w-4" />
-            )}
-            Çıkış
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={yenile}
+              disabled={yenileniyor}
+              title="Yeni yüklemeleri getir"
+              className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${yenileniyor ? "animate-spin" : ""}`}
+              />
+              <span className="hidden sm:inline">Yenile</span>
+            </button>
+            <button
+              type="button"
+              onClick={cikisYap}
+              disabled={cikis}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+            >
+              {cikis ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
+              <span className="hidden sm:inline">Çıkış</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -93,9 +248,8 @@ export function MusteriPanel({
           <Star className="h-4 w-4 shrink-0" />
           <p>
             <span className="font-semibold">{showroomSayi}</span> fotoğraf
-            showroom&apos;da yayında. Beğendiğin fotoğrafları{" "}
-            <span className="font-medium">&quot;Showroom&apos;da Yayınla&quot;</span>{" "}
-            ile vitrine ekleyebilirsin.
+            showroom&apos;da yayında. Fotoğrafa tıklayıp büyütebilir, tek tek ya
+            da toplu indirebilirsin.
           </p>
         </div>
 
@@ -115,7 +269,7 @@ export function MusteriPanel({
           />
         </div>
 
-        <div className="mt-6">
+        <div className="mt-5">
           <AnimatePresence mode="wait">
             {sekme === "anilar" ? (
               <motion.div
@@ -128,27 +282,84 @@ export function MusteriPanel({
                   <BosDurum
                     icon={Images}
                     baslik="Henüz içerik yok"
-                    aciklama="Misafirler QR ile yükleme yaptıkça fotoğraf ve videolar burada belirir."
+                    aciklama="Misafirler QR ile yükleme yaptıkça fotoğraf ve videolar burada belirir. Yeni yüklemeleri görmek için Yenile'ye dokun."
                   />
                 ) : (
-                  <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
-                    {liste.map((m) => (
-                      <MedyaKart
-                        key={m.id}
-                        slug={slug}
-                        medya={m}
-                        onDegis={(onay) =>
-                          setListe((o) =>
-                            o.map((x) =>
-                              x.id === m.id
-                                ? { ...x, showroom_approved: onay }
-                                : x,
-                            ),
-                          )
-                        }
-                      />
-                    ))}
-                  </div>
+                  <>
+                    {/* Araç çubuğu */}
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {liste.length} içerik
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {!secimModu ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => topluIndir(liste)}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
+                            >
+                              <Download className="h-4 w-4" /> Tümünü indir
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSecimModu(true)}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground hover:brightness-110"
+                            >
+                              <CheckSquare className="h-4 w-4" /> Seç
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={
+                                secili.size === liste.length
+                                  ? secimiTemizle
+                                  : tumunuSec
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
+                            >
+                              {secili.size === liste.length
+                                ? "Seçimi kaldır"
+                                : "Tümünü seç"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={secimModuKapat}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
+                            >
+                              <X className="h-4 w-4" /> Vazgeç
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
+                      {liste.map((m, i) => (
+                        <MedyaKart
+                          key={m.id}
+                          slug={slug}
+                          medya={m}
+                          secimModu={secimModu}
+                          secili={secili.has(m.id)}
+                          onAc={() => setLightbox(i)}
+                          onSecim={() => secimToggle(m.id)}
+                          onIndir={() => tekIndir(m, i)}
+                          onShowroom={(onay) =>
+                            setListe((o) =>
+                              o.map((x) =>
+                                x.id === m.id
+                                  ? { ...x, showroom_approved: onay }
+                                  : x,
+                              ),
+                            )
+                          }
+                        />
+                      ))}
+                    </div>
+                  </>
                 )}
               </motion.div>
             ) : (
@@ -173,7 +384,202 @@ export function MusteriPanel({
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Seçim alt çubuğu */}
+      <AnimatePresence>
+        {secimModu && (
+          <motion.div
+            initial={{ y: 80 }}
+            animate={{ y: 0 }}
+            exit={{ y: 80 }}
+            className="sticky bottom-0 z-30 border-t border-border bg-card/90 backdrop-blur-md"
+          >
+            <div
+              className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 pt-3 sm:px-8"
+              style={{
+                paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))",
+              }}
+            >
+              <p className="text-sm font-medium">{secili.size} seçili</p>
+              <button
+                type="button"
+                disabled={secili.size === 0}
+                onClick={() => topluIndir(seciliMedyalar)}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-elegant hover:brightness-110 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Seçilenleri indir
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightbox !== null && liste[lightbox] && (
+          <Lightbox
+            liste={liste}
+            index={lightbox}
+            onKapat={() => setLightbox(null)}
+            onGit={(i) => setLightbox(i)}
+            onIndir={(m, i) => tekIndir(m, i)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* İndirme ilerleme overlay */}
+      <AnimatePresence>
+        {indirme && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm"
+          >
+            <div className="rounded-2xl bg-card px-8 py-6 text-center shadow-elegant">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+              <p className="font-display mt-3 font-semibold">İndiriliyor…</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {indirme.yapilan} / {indirme.toplam} hazırlanıyor
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/* ----------------------- Lightbox ----------------------- */
+function Lightbox({
+  liste,
+  index,
+  onKapat,
+  onGit,
+  onIndir,
+}: {
+  liste: OdaMedya[];
+  index: number;
+  onKapat: () => void;
+  onGit: (i: number) => void;
+  onIndir: (m: OdaMedya, i: number) => void;
+}) {
+  const m = liste[index];
+  const onceki = () => onGit((index - 1 + liste.length) % liste.length);
+  const sonraki = () => onGit((index + 1) % liste.length);
+
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onKapat();
+      else if (e.key === "ArrowLeft") onceki();
+      else if (e.key === "ArrowRight") sonraki();
+    };
+    window.addEventListener("keydown", f);
+    const eski = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", f);
+      document.body.style.overflow = eski;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, liste.length]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm"
+      onClick={onKapat}
+    >
+      {/* Üst bar */}
+      <div
+        className="flex items-center justify-between gap-3 px-4 pb-3 text-white"
+        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="text-sm text-white/70">
+          {index + 1} / {liste.length}
+          {m.guest_name ? ` · ${m.guest_name}` : ""}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onIndir(m, index)}
+            className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium hover:bg-white/25"
+          >
+            <Download className="h-4 w-4" /> İndir
+          </button>
+          <button
+            type="button"
+            onClick={onKapat}
+            aria-label="Kapat"
+            className="rounded-full bg-white/15 p-2 hover:bg-white/25"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* İçerik */}
+      <div
+        className="relative flex flex-1 items-center justify-center overflow-hidden px-2 pb-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {liste.length > 1 && (
+          <button
+            type="button"
+            onClick={onceki}
+            aria-label="Önceki"
+            className="absolute left-2 z-10 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 sm:left-4"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+
+        {m.url ? (
+          m.file_type === "video" ? (
+            <video
+              src={m.url}
+              controls
+              autoPlay
+              playsInline
+              className="max-h-full max-w-full rounded-lg"
+            />
+          ) : (
+            <motion.img
+              key={index}
+              src={m.url}
+              alt={m.guest_name ?? "Anı"}
+              drag={liste.length > 1 ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.18}
+              onDragEnd={(_, info) => {
+                if (info.offset.x < -80) sonraki();
+                else if (info.offset.x > 80) onceki();
+              }}
+              initial={{ opacity: 0.4 }}
+              animate={{ opacity: 1 }}
+              className="max-h-full max-w-full touch-pan-y rounded-lg object-contain"
+            />
+          )
+        ) : (
+          <div className="text-white/60">Görsel yüklenemedi</div>
+        )}
+
+        {liste.length > 1 && (
+          <button
+            type="button"
+            onClick={sonraki}
+            aria-label="Sonraki"
+            className="absolute right-2 z-10 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 sm:right-4"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
@@ -229,21 +635,30 @@ function SekmeDugme({
 function MedyaKart({
   slug,
   medya,
-  onDegis,
+  secimModu,
+  secili,
+  onAc,
+  onSecim,
+  onIndir,
+  onShowroom,
 }: {
   slug: string;
   medya: OdaMedya;
-  onDegis: (onay: boolean) => void;
+  secimModu: boolean;
+  secili: boolean;
+  onAc: () => void;
+  onSecim: () => void;
+  onIndir: () => void;
+  onShowroom: (onay: boolean) => void;
 }) {
   const [kaydediyor, setKaydediyor] = useState(false);
-  const [hata, setHata] = useState(false);
 
-  async function toggle() {
+  async function showroomToggle(e: React.MouseEvent) {
+    e.stopPropagation();
     if (kaydediyor) return;
     const yeni = !medya.showroom_approved;
     setKaydediyor(true);
-    setHata(false);
-    onDegis(yeni); // iyimser güncelleme
+    onShowroom(yeni);
     try {
       const res = await fetch("/api/oda/showroom", {
         method: "POST",
@@ -252,24 +667,31 @@ function MedyaKart({
       });
       if (!res.ok) throw new Error();
     } catch {
-      onDegis(!yeni); // geri al
-      setHata(true);
+      onShowroom(!yeni);
     } finally {
       setKaydediyor(false);
     }
   }
 
   return (
-    <div className="mb-4 break-inside-avoid overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <div className="relative bg-muted">
+    <div
+      className={`group mb-4 break-inside-avoid overflow-hidden rounded-2xl border bg-card shadow-sm transition-all ${
+        secili ? "border-primary ring-2 ring-primary" : "border-border"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={secimModu ? onSecim : onAc}
+        className="relative block w-full bg-muted text-left"
+      >
         {medya.url ? (
           medya.file_type === "video" ? (
             <video
               src={medya.url}
-              controls
               playsInline
-              className="w-full"
+              muted
               preload="metadata"
+              className="w-full"
             />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
@@ -285,12 +707,43 @@ function MedyaKart({
             <Camera className="h-6 w-6" />
           </div>
         )}
+
         {medya.file_type === "video" && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">
             <VideoIcon className="h-3 w-3" /> Video
           </span>
         )}
-      </div>
+
+        {/* Seçim göstergesi */}
+        {secimModu && (
+          <span
+            className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 ${
+              secili
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-white bg-black/30 text-transparent"
+            }`}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+        )}
+
+        {/* İndir (görüntüleme modunda, hover'da) */}
+        {!secimModu && (
+          <span
+            role="button"
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndir();
+            }}
+            className="absolute right-2 top-2 hidden rounded-full bg-black/40 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/60 group-hover:block"
+            aria-label="İndir"
+          >
+            <Download className="h-4 w-4" />
+          </span>
+        )}
+      </button>
+
       <div className="p-3">
         {medya.guest_name && (
           <p className="truncate text-xs text-muted-foreground">
@@ -299,9 +752,9 @@ function MedyaKart({
         )}
         <button
           type="button"
-          onClick={toggle}
-          disabled={kaydediyor}
-          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${
+          onClick={showroomToggle}
+          disabled={kaydediyor || secimModu}
+          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
             medya.showroom_approved
               ? "bg-primary text-primary-foreground"
               : "border border-primary/40 text-primary-deep hover:bg-primary-soft/50"
@@ -316,11 +769,6 @@ function MedyaKart({
           )}
           {medya.showroom_approved ? "Showroom'da yayında" : "Showroom'da Yayınla"}
         </button>
-        {hata && (
-          <p className="mt-1 text-center text-[11px] text-rose">
-            Kaydedilemedi, tekrar deneyin.
-          </p>
-        )}
       </div>
     </div>
   );

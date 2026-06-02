@@ -224,3 +224,33 @@ html.tema-gecis *::after {
     fill 0.45s ease,
     box-shadow 0.45s ease !important;
 }
+
+/* =============================================================
+   MOBİL CİLA — telefon-öncelikli kusursuz deneyim
+   ============================================================= */
+
+/* iOS'ta odakta otomatik yakınlaştırmayı engelle: form alanları ≥16px.
+   (Masaüstünde tasarım text-sm görünümünü korur.) */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Dokunmada gri parıltıyı kaldır (daha temiz, native his) */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Yönlendirme değişiminde metin boyutu kaymasını engelle */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Yatay taşmayı kesin engelle (mobilde sağ-sol kayma olmasın) */
+body {
+  overflow-x: hidden;
+}
