@@ -1,11 +1,11 @@
-// Müşteri kendi odasındaki bir medyayı siler (DB satırı + depolama dosyası).
-// Oturum çerezi slug'a bağlı doğrulanır → yalnızca kendi odasını siler.
+// Müşteri kendi odasındaki bir veya birden çok medyayı siler
+// (DB satırı + depolama dosyası). Oturum çerezi slug'a bağlı doğrulanır.
 import { NextResponse } from "next/server";
 import { odaOturumOku } from "@/lib/oda/oturum";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
-  let body: { slug?: string; mediaId?: string };
+  let body: { slug?: string; mediaId?: string; mediaIds?: string[] };
   try {
     body = await request.json();
   } catch {
@@ -13,8 +13,14 @@ export async function POST(request: Request) {
   }
 
   const slug = (body.slug ?? "").trim();
-  const mediaId = (body.mediaId ?? "").trim();
-  if (!slug || !mediaId) {
+  // Tekil veya çoklu id desteği.
+  const idler = (
+    Array.isArray(body.mediaIds) ? body.mediaIds : [body.mediaId]
+  )
+    .map((x) => (x ?? "").trim())
+    .filter(Boolean);
+
+  if (!slug || idler.length === 0) {
     return NextResponse.json({ hata: "Eksik parametre." }, { status: 400 });
   }
 
@@ -24,27 +30,34 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  // Yalnızca BU odaya ait satır (güvenlik).
-  const { data: m } = await admin
+  // Yalnızca BU odaya ait satırlar (güvenlik).
+  const { data: satirlar } = await admin
     .from("media")
     .select("id, storage_path")
-    .eq("id", mediaId)
     .eq("event_id", eventId)
-    .maybeSingle();
-  if (!m) {
+    .in("id", idler);
+
+  if (!satirlar || satirlar.length === 0) {
     return NextResponse.json({ hata: "İçerik bulunamadı." }, { status: 404 });
   }
 
-  if (m.storage_path) {
-    await admin.storage.from("event-media").remove([m.storage_path as string]);
+  const yollar = satirlar
+    .map((m) => m.storage_path as string)
+    .filter(Boolean);
+  if (yollar.length > 0) {
+    await admin.storage.from("event-media").remove(yollar);
   }
+
   const { error } = await admin
     .from("media")
     .delete()
-    .eq("id", mediaId)
-    .eq("event_id", eventId);
+    .eq("event_id", eventId)
+    .in(
+      "id",
+      satirlar.map((m) => m.id),
+    );
   if (error) {
     return NextResponse.json({ hata: "Silinemedi." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, silinen: satirlar.length });
 }

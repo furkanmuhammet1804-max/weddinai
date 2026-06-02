@@ -103,6 +103,31 @@ export function MusteriPanel({
     return () => obs.disconnect();
   }, [liste.length, sekme]);
 
+  // Seçilen içerikleri toplu siler.
+  async function topluSil(medias: OdaMedya[]) {
+    if (medias.length === 0) return;
+    if (
+      !window.confirm(
+        `${medias.length} içeriği kalıcı olarak silmek istiyor musunuz? Bu işlem geri alınamaz.`,
+      )
+    )
+      return;
+    const idSet = new Set(medias.map((m) => m.id));
+    setListe((o) => o.filter((x) => !idSet.has(x.id))); // iyimser
+    setSecili(new Set());
+    setSecimModu(false);
+    try {
+      const res = await fetch("/api/oda/medya-sil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, mediaIds: [...idSet] }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      router.refresh();
+    }
+  }
+
   // Müşteri bir içeriği siler (depolama dosyası da temizlenir).
   async function silMedya(m: OdaMedya) {
     if (
@@ -464,15 +489,26 @@ export function MusteriPanel({
               }}
             >
               <p className="text-sm font-medium">{secili.size} seçili</p>
-              <button
-                type="button"
-                disabled={secili.size === 0}
-                onClick={() => topluIndir(seciliMedyalar)}
-                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-elegant hover:brightness-110 disabled:opacity-50"
-              >
-                <Download className="h-4 w-4" />
-                Seçilenleri indir
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={secili.size === 0}
+                  onClick={() => topluSil(seciliMedyalar)}
+                  className="inline-flex items-center gap-2 rounded-full border border-rose/40 px-4 py-2.5 text-sm font-medium text-rose hover:bg-rose/10 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Sil
+                </button>
+                <button
+                  type="button"
+                  disabled={secili.size === 0}
+                  onClick={() => topluIndir(seciliMedyalar)}
+                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-elegant hover:brightness-110 disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4" />
+                  İndir
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
