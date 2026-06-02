@@ -35,9 +35,41 @@ interface YuklemeDosya {
   ad: string;
   tur: "fotograf" | "video";
   boyut: number;
+  ilerleme: number;
   durum: DosyaDurum;
   hata?: string;
   onizleme?: string;
+}
+
+// Gerçek ilerleme için XHR ile doğrudan Storage REST'e yükler (foto + video).
+function xhrYukle(
+  bucket: string,
+  path: string,
+  file: File,
+  onIlerleme: (p: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/${bucket}/${path
+      .split("/")
+      .map(encodeURIComponent)
+      .join("/")}`;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.setRequestHeader("Authorization", `Bearer ${key}`);
+    xhr.setRequestHeader("apikey", key);
+    xhr.setRequestHeader("x-upsert", "false");
+    if (file.type) xhr.setRequestHeader("Content-Type", file.type);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onIlerleme(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () =>
+      xhr.status >= 200 && xhr.status < 300
+        ? resolve()
+        : reject(new Error("upload"));
+    xhr.onerror = () => reject(new Error("network"));
+    xhr.send(file);
+  });
 }
 
 function bytKbMb(bayt: number): string {
@@ -228,18 +260,14 @@ function YuklemeAlani({
 
   const tekDosyaYukle = useCallback(
     async (d: YuklemeDosya) => {
-      durumGuncelle(d.id, { durum: "yukleniyor", hata: undefined });
+      durumGuncelle(d.id, { durum: "yukleniyor", ilerleme: 0, hata: undefined });
       try {
-        const supabase = createClient();
         const path = `${eventId}/${crypto.randomUUID()}.${uzanti(d.dosya)}`;
-        const { error: upErr } = await supabase.storage
-          .from(MEDYA_BUCKET)
-          .upload(path, d.dosya, {
-            contentType: d.dosya.type || undefined,
-            upsert: false,
-          });
-        if (upErr) throw upErr;
+        await xhrYukle(MEDYA_BUCKET, path, d.dosya, (p) =>
+          durumGuncelle(d.id, { ilerleme: p }),
+        );
 
+        const supabase = createClient();
         const { error: rpcErr } = await supabase.rpc("misafir_medya_ekle", {
           p_slug: slug,
           p_storage_path: path,
@@ -249,7 +277,7 @@ function YuklemeAlani({
         });
         if (rpcErr) throw rpcErr;
 
-        durumGuncelle(d.id, { durum: "tamam" });
+        durumGuncelle(d.id, { durum: "tamam", ilerleme: 100 });
       } catch {
         durumGuncelle(d.id, {
           durum: "hata",
@@ -306,6 +334,7 @@ function YuklemeAlani({
         ad: f.name,
         tur,
         boyut: f.size,
+        ilerleme: 0,
         durum: "bekliyor",
         onizleme,
       });
@@ -508,9 +537,18 @@ function YuklemeAlani({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{d.ad}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {bytKbMb(d.boyut)}
-                    </p>
+                    {d.durum === "yukleniyor" || d.durum === "bekliyor" ? (
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-accent to-primary transition-all duration-300"
+                          style={{ width: `${d.ilerleme}%` }}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {bytKbMb(d.boyut)}
+                      </p>
+                    )}
                   </div>
                   <span className="flex w-8 shrink-0 items-center justify-end">
                     {d.durum === "tamam" ? (
@@ -525,7 +563,9 @@ function YuklemeAlani({
                         <RotateCw className="h-4 w-4" />
                       </button>
                     ) : (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {d.ilerleme}%
+                      </span>
                     )}
                   </span>
                 </div>
