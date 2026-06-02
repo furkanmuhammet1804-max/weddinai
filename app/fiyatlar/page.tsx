@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 interface Paket {
+  slug: string;
   ad: string;
   fiyat: string;
   vurgu?: boolean;
@@ -21,6 +22,7 @@ interface Paket {
 
 const paketler: Paket[] = [
   {
+    slug: "baslangic",
     ad: "Başlangıç",
     fiyat: "₺1.490",
     icon: Camera,
@@ -34,6 +36,7 @@ const paketler: Paket[] = [
     ],
   },
   {
+    slug: "standart",
     ad: "Standart",
     fiyat: "₺2.490",
     vurgu: true,
@@ -49,6 +52,7 @@ const paketler: Paket[] = [
     ],
   },
   {
+    slug: "premium",
     ad: "Premium",
     fiyat: "₺4.990",
     icon: Crown,
@@ -134,7 +138,7 @@ export default function FiyatlarPage() {
                   </ul>
 
                   <Link
-                    href="/kayit"
+                    href={`/siparis?paket=${p.slug}`}
                     className={`mt-7 inline-flex items-center justify-center gap-2 rounded-full py-3 text-sm font-medium transition-all ${
                       p.vurgu
                         ? "bg-primary text-primary-foreground shadow-elegant hover:brightness-110"

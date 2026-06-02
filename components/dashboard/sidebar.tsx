@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   DoorOpen,
   Plus,
+  Inbox,
   Settings,
   Menu,
   X,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 const menu = [
   { href: "/panel", label: "Odalarım", icon: DoorOpen },
   { href: "/panel/oda/yeni", label: "Yeni Oda", icon: Plus },
+  { href: "/panel/talepler", label: "Talepler", icon: Inbox },
   { href: "/panel/ayarlar", label: "Ayarlar", icon: Settings },
 ];
 
