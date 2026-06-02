@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import {
   ArrowLeft,
@@ -19,6 +20,8 @@ import {
   EyeOff,
   Store,
   MonitorPlay,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
@@ -169,7 +172,67 @@ export function OdaDetay({
 
       {/* Şifre */}
       <SifreBolum odaId={oda.id} />
+
+      {/* Tehlikeli bölge */}
+      <OdaSilBolum odaId={oda.id} baslik={oda.title} />
     </div>
+  );
+}
+
+function OdaSilBolum({ odaId, baslik }: { odaId: string; baslik: string }) {
+  const router = useRouter();
+  const [siliniyor, setSiliniyor] = useState(false);
+
+  async function sil() {
+    if (siliniyor) return;
+    const onay = window.prompt(
+      `"${baslik}" odasını ve TÜM fotoğraf/video/anılarını kalıcı olarak silmek üzeresiniz. Bu işlem geri ALINAMAZ.\n\nOnaylamak için SİL yazın:`,
+    );
+    if ((onay ?? "").trim().toLocaleUpperCase("tr") !== "SİL") return;
+    setSiliniyor(true);
+    try {
+      const res = await fetch("/api/panel/oda-sil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: odaId }),
+      });
+      if (!res.ok) throw new Error();
+      router.push("/panel");
+      router.refresh();
+    } catch {
+      setSiliniyor(false);
+      window.alert("Oda silinemedi. Lütfen tekrar deneyin.");
+    }
+  }
+
+  return (
+    <section className="mt-5 rounded-2xl border border-rose/30 bg-rose/5 p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose/10 text-rose">
+          <AlertTriangle className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display font-semibold text-rose">Tehlikeli Bölge</h2>
+          <p className="text-sm text-muted-foreground">
+            Odayı silmek; tüm fotoğraf, video ve anıları kalıcı olarak kaldırır.
+            Geri alınamaz.
+          </p>
+          <button
+            type="button"
+            onClick={sil}
+            disabled={siliniyor}
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-rose px-5 py-2.5 text-sm font-medium text-white transition-all hover:brightness-110 disabled:opacity-60"
+          >
+            {siliniyor ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Odayı Sil
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 

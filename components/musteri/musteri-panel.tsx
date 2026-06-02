@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Images,
@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import JSZip from "jszip";
@@ -27,6 +28,9 @@ import type { OdaBilgi, OdaMedya, OdaAni } from "@/lib/oda/veri";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
 type Sekme = "anilar" | "defter";
+
+// Mobilde akıcı kalsın diye medya kartları parça parça (lazy) gösterilir.
+const GOSTER_ADIM = 48;
 
 // Bir medyanın indirme dosya adını üretir (sıra-no + isim + uzantı).
 function dosyaAdi(m: OdaMedya, i: number): string {
@@ -74,11 +78,51 @@ export function MusteriPanel({
     yapilan: number;
     toplam: number;
   } | null>(null);
+  const [gosterilen, setGosterilen] = useState(GOSTER_ADIM);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Props değişince (router.refresh sonrası) listeyi tazele
   useEffect(() => {
     setListe(medyalar);
+    setGosterilen(GOSTER_ADIM);
   }, [medyalar]);
+
+  // Sonsuz kaydırma: sentinel görününce daha fazla kart yükle.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (girisler) => {
+        if (girisler[0]?.isIntersecting) {
+          setGosterilen((g) => Math.min(g + GOSTER_ADIM, liste.length));
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [liste.length, sekme]);
+
+  // Müşteri bir içeriği siler (depolama dosyası da temizlenir).
+  async function silMedya(m: OdaMedya) {
+    if (
+      !window.confirm(
+        "Bu içeriği kalıcı olarak silmek istiyor musunuz? Bu işlem geri alınamaz.",
+      )
+    )
+      return;
+    setListe((o) => o.filter((x) => x.id !== m.id)); // iyimser
+    try {
+      const res = await fetch("/api/oda/medya-sil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, mediaId: m.id }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      router.refresh(); // başarısızsa gerçeği geri getir
+    }
+  }
 
   const fotoSayi = liste.filter((m) => m.file_type === "fotograf").length;
   const videoSayi = liste.filter((m) => m.file_type === "video").length;
@@ -337,7 +381,7 @@ export function MusteriPanel({
                     </div>
 
                     <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
-                      {liste.map((m, i) => (
+                      {liste.slice(0, gosterilen).map((m, i) => (
                         <MedyaKart
                           key={m.id}
                           slug={slug}
@@ -347,6 +391,7 @@ export function MusteriPanel({
                           onAc={() => setLightbox(i)}
                           onSecim={() => secimToggle(m.id)}
                           onIndir={() => tekIndir(m, i)}
+                          onSil={() => silMedya(m)}
                           onShowroom={(onay) =>
                             setListe((o) =>
                               o.map((x) =>
@@ -359,6 +404,24 @@ export function MusteriPanel({
                         />
                       ))}
                     </div>
+                    {gosterilen < liste.length && (
+                      <div
+                        ref={sentinelRef}
+                        className="flex justify-center py-6"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setGosterilen((g) =>
+                              Math.min(g + GOSTER_ADIM, liste.length),
+                            )
+                          }
+                          className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-primary hover:text-primary"
+                        >
+                          Daha fazla göster ({liste.length - gosterilen})
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </motion.div>
@@ -640,6 +703,7 @@ function MedyaKart({
   onAc,
   onSecim,
   onIndir,
+  onSil,
   onShowroom,
 }: {
   slug: string;
@@ -649,6 +713,7 @@ function MedyaKart({
   onAc: () => void;
   onSecim: () => void;
   onIndir: () => void;
+  onSil: () => void;
   onShowroom: (onay: boolean) => void;
 }) {
   const [kaydediyor, setKaydediyor] = useState(false);
@@ -750,25 +815,38 @@ function MedyaKart({
             {medya.guest_name}
           </p>
         )}
-        <button
-          type="button"
-          onClick={showroomToggle}
-          disabled={kaydediyor || secimModu}
-          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-            medya.showroom_approved
-              ? "bg-primary text-primary-foreground"
-              : "border border-primary/40 text-primary-deep hover:bg-primary-soft/50"
-          }`}
-        >
-          {kaydediyor ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : medya.showroom_approved ? (
-            <CheckCircle2 className="h-3.5 w-3.5" />
-          ) : (
-            <Star className="h-3.5 w-3.5" />
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={showroomToggle}
+            disabled={kaydediyor || secimModu}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              medya.showroom_approved
+                ? "bg-primary text-primary-foreground"
+                : "border border-primary/40 text-primary-deep hover:bg-primary-soft/50"
+            }`}
+          >
+            {kaydediyor ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : medya.showroom_approved ? (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            ) : (
+              <Star className="h-3.5 w-3.5" />
+            )}
+            {medya.showroom_approved ? "Yayında" : "Showroom'da Yayınla"}
+          </button>
+          {!secimModu && (
+            <button
+              type="button"
+              onClick={onSil}
+              aria-label="Sil"
+              title="Sil"
+              className="shrink-0 rounded-full border border-rose/40 p-2 text-rose transition-colors hover:bg-rose/10"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           )}
-          {medya.showroom_approved ? "Showroom'da yayında" : "Showroom'da Yayınla"}
-        </button>
+        </div>
       </div>
     </div>
   );

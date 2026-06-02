@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
@@ -17,6 +17,8 @@ interface Foto {
   id: string;
   url: string;
 }
+
+const GOSTER_ADIM = 48;
 
 function dosyaAdi(f: Foto, i: number): string {
   let ext = "jpg";
@@ -41,6 +43,23 @@ export function ShowroomGaleri({ fotograflar }: { fotograflar: Foto[] }) {
     yapilan: number;
     toplam: number;
   } | null>(null);
+  const [gosterilen, setGosterilen] = useState(GOSTER_ADIM);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (g) => {
+        if (g[0]?.isIntersecting) {
+          setGosterilen((x) => Math.min(x + GOSTER_ADIM, fotograflar.length));
+        }
+      },
+      { rootMargin: "600px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [fotograflar.length]);
 
   async function tekBlobIndir(f: Foto, i: number) {
     const res = await fetch(f.url);
@@ -166,7 +185,7 @@ export function ShowroomGaleri({ fotograflar }: { fotograflar: Foto[] }) {
       </div>
 
       <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
-        {fotograflar.map((f, i) => {
+        {fotograflar.slice(0, gosterilen).map((f, i) => {
           const sec = secili.has(f.id);
           return (
             <button
@@ -219,6 +238,20 @@ export function ShowroomGaleri({ fotograflar }: { fotograflar: Foto[] }) {
           );
         })}
       </div>
+
+      {gosterilen < fotograflar.length && (
+        <div ref={sentinelRef} className="flex justify-center py-6">
+          <button
+            type="button"
+            onClick={() =>
+              setGosterilen((x) => Math.min(x + GOSTER_ADIM, fotograflar.length))
+            }
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium hover:border-primary hover:text-primary"
+          >
+            Daha fazla göster ({fotograflar.length - gosterilen})
+          </button>
+        </div>
+      )}
 
       {/* Seçim alt çubuğu */}
       <AnimatePresence>
