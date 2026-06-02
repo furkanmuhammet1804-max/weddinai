@@ -1,0 +1,210 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Download, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+
+interface Foto {
+  id: string;
+  url: string;
+}
+
+function dosyaAdi(f: Foto, i: number): string {
+  let ext = "jpg";
+  try {
+    const p = new URL(f.url).pathname;
+    const nokta = p.lastIndexOf(".");
+    if (nokta >= 0) {
+      const e = p.slice(nokta + 1).toLowerCase();
+      if (/^[a-z0-9]{2,5}$/.test(e)) ext = e;
+    }
+  } catch {
+    /* yoksay */
+  }
+  return `${String(i + 1).padStart(3, "0")}.${ext}`;
+}
+
+export function ShowroomGaleri({ fotograflar }: { fotograflar: Foto[] }) {
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const [indiriyor, setIndiriyor] = useState(false);
+
+  async function indir(f: Foto, i: number) {
+    if (!f.url || indiriyor) return;
+    setIndiriyor(true);
+    try {
+      const res = await fetch(f.url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = dosyaAdi(f, i);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* sessiz */
+    }
+    setIndiriyor(false);
+  }
+
+  return (
+    <>
+      <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
+        {fotograflar.map((f, i) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setLightbox(i)}
+            className="mb-4 block w-full break-inside-avoid"
+          >
+            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={f.url}
+                alt="Anı"
+                loading="lazy"
+                className="w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+              />
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <AnimatePresence>
+        {lightbox !== null && fotograflar[lightbox] && (
+          <Lightbox
+            fotograflar={fotograflar}
+            index={lightbox}
+            indiriyor={indiriyor}
+            onKapat={() => setLightbox(null)}
+            onGit={(i) => setLightbox(i)}
+            onIndir={(f, i) => indir(f, i)}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+function Lightbox({
+  fotograflar,
+  index,
+  indiriyor,
+  onKapat,
+  onGit,
+  onIndir,
+}: {
+  fotograflar: Foto[];
+  index: number;
+  indiriyor: boolean;
+  onKapat: () => void;
+  onGit: (i: number) => void;
+  onIndir: (f: Foto, i: number) => void;
+}) {
+  const f = fotograflar[index];
+  const onceki = () => onGit((index - 1 + fotograflar.length) % fotograflar.length);
+  const sonraki = () => onGit((index + 1) % fotograflar.length);
+
+  useEffect(() => {
+    const fn = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onKapat();
+      else if (e.key === "ArrowLeft") onceki();
+      else if (e.key === "ArrowRight") sonraki();
+    };
+    window.addEventListener("keydown", fn);
+    const eski = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", fn);
+      document.body.style.overflow = eski;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, fotograflar.length]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm"
+      onClick={onKapat}
+    >
+      <div
+        className="flex items-center justify-between gap-3 px-4 pb-3 text-white"
+        style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="text-sm text-white/70">
+          {index + 1} / {fotograflar.length}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onIndir(f, index)}
+            disabled={indiriyor}
+            className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium hover:bg-white/25 disabled:opacity-60"
+          >
+            {indiriyor ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            İndir
+          </button>
+          <button
+            type="button"
+            onClick={onKapat}
+            aria-label="Kapat"
+            className="rounded-full bg-white/15 p-2 hover:bg-white/25"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="relative flex flex-1 items-center justify-center overflow-hidden px-2 pb-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {fotograflar.length > 1 && (
+          <button
+            type="button"
+            onClick={onceki}
+            aria-label="Önceki"
+            className="absolute left-2 z-10 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 sm:left-4"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+        )}
+
+        <motion.img
+          key={index}
+          src={f.url}
+          alt="Anı"
+          drag={fotograflar.length > 1 ? "x" : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.18}
+          onDragEnd={(_, info) => {
+            if (info.offset.x < -80) sonraki();
+            else if (info.offset.x > 80) onceki();
+          }}
+          initial={{ opacity: 0.4 }}
+          animate={{ opacity: 1 }}
+          className="max-h-full max-w-full touch-pan-y rounded-lg object-contain"
+        />
+
+        {fotograflar.length > 1 && (
+          <button
+            type="button"
+            onClick={sonraki}
+            aria-label="Sonraki"
+            className="absolute right-2 z-10 rounded-full bg-white/15 p-2 text-white hover:bg-white/25 sm:right-4"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}

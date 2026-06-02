@@ -135,6 +135,49 @@ export async function showroomOnayDegistir(
   return !error;
 }
 
+export interface SlaytFoto {
+  id: string;
+  url: string;
+  guest_name: string | null;
+}
+
+// Canlı slayt: aktif etkinliğin YAYINLANMIŞ (onaylandi) tüm fotoğrafları,
+// kronolojik (eskiden yeniye → yeni gelen sona eklenir). Düğün ekranı için.
+export async function slaytVerisi(
+  slug: string,
+): Promise<{ bilgi: OdaBilgi; fotograflar: SlaytFoto[] } | null> {
+  const admin = createAdminClient();
+  const { data: ev } = await admin
+    .from("events")
+    .select("id, title, slug, event_type, event_date, status")
+    .ilike("slug", slug)
+    .eq("status", "aktif")
+    .maybeSingle();
+  if (!ev) return null;
+
+  const { data: medya } = await admin
+    .from("media")
+    .select("id, storage_path, guest_name")
+    .eq("event_id", ev.id)
+    .eq("file_type", "fotograf")
+    .eq("status", "onaylandi")
+    .order("created_at", { ascending: true });
+  const satirlar = medya ?? [];
+  const harita = await imzaliUrlHaritasi(
+    MEDYA_BUCKET,
+    satirlar.map((m) => m.storage_path as string),
+  );
+  const fotograflar = satirlar
+    .map((m) => ({
+      id: m.id as string,
+      url: harita.get(m.storage_path as string) ?? "",
+      guest_name: (m.guest_name as string) ?? null,
+    }))
+    .filter((f) => f.url);
+
+  return { bilgi: ev as OdaBilgi, fotograflar };
+}
+
 // Herkese açık showroom: yalnızca onaylanmış FOTOĞRAFLAR + aktif etkinlik.
 export async function showroomVerisi(
   slug: string,

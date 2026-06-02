@@ -1,172 +1,131 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Sparkles, Camera, X } from "lucide-react";
-import Link from "next/link";
-import { medyaListesi } from "@/lib/mock-data";
+import { Heart, Sparkles, Camera } from "lucide-react";
+import QRCode from "qrcode";
+import type { SlaytFoto } from "@/lib/oda/veri";
 
-const onayli = medyaListesi.filter((m) => m.status === "onaylandi");
+const GECIS_MS = 6000; // fotoğraf başına süre
+const POLL_MS = 18000; // yeni fotoğraf kontrol aralığı
 
-const yeniIsimler = [
-  "Selin Yıldız",
-  "Burak Aydın",
-  "Deniz Şahin",
-  "Ece Arslan",
-  "Naz Çelik",
-];
-const yeniTonlar = [
-  "from-rose to-primary-soft",
-  "from-accent to-primary",
-  "from-primary-soft to-accent",
-  "from-rose-soft to-rose",
-];
-
-interface Slayt {
-  id: string;
-  guest_name: string;
-  tone: string;
-  yeni?: boolean;
-}
-
-export function Slideshow({ baslik }: { baslik: string }) {
-  const [slaytlar, setSlaytlar] = useState<Slayt[]>(
-    onayli.map((m) => ({ id: m.id, guest_name: m.guest_name, tone: m.tone })),
-  );
+export function Slideshow({
+  baslik,
+  slug,
+  ilk,
+}: {
+  baslik: string;
+  slug: string;
+  ilk: SlaytFoto[];
+}) {
+  const [fotograflar, setFotograflar] = useState<SlaytFoto[]>(ilk);
   const [aktif, setAktif] = useState(0);
-  const [bildirim, setBildirim] = useState<Slayt | null>(null);
+  const [bildirim, setBildirim] = useState<SlaytFoto | null>(null);
+  const [qr, setQr] = useState("");
+  const bilinenRef = useRef<Set<string>>(new Set(ilk.map((f) => f.id)));
+  const bildirimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Bekleyen setTimeout id'leri — unmount'ta temizlenir (bellek sızıntısı /
-  // unmount sonrası setState uyarısı önlenir).
-  const zamanlayicilar = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Misafir yükleme QR'ı ("sen de paylaş")
   useEffect(() => {
-    const liste = zamanlayicilar.current;
-    return () => {
-      liste.forEach(clearTimeout);
-      liste.length = 0;
-    };
-  }, []);
+    const url = `${window.location.origin}/e/${slug}`;
+    QRCode.toDataURL(url, { width: 240, margin: 1 })
+      .then(setQr)
+      .catch(() => setQr(""));
+  }, [slug]);
 
-  // Otomatik geçiş — tek slayt veya boş listede geçişe gerek yok (modulo-by-zero
-  // ve gereksiz yeniden render önlenir).
+  // Otomatik geçiş
   useEffect(() => {
-    if (slaytlar.length <= 1) return;
-    const t = setInterval(() => {
-      setAktif((i) => (i + 1) % slaytlar.length);
-    }, 5000);
-    return () => clearInterval(t);
-  }, [slaytlar.length]);
-
-  // Realtime simülasyonu: yeni fotoğraf "gelmesi"
-  const yeniAniEkle = useCallback(() => {
-    const yeni: Slayt = {
-      id: `canli_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      guest_name: yeniIsimler[Math.floor(Math.random() * yeniIsimler.length)],
-      tone: yeniTonlar[Math.floor(Math.random() * yeniTonlar.length)],
-      yeni: true,
-    };
-    setBildirim(yeni);
-    const unut = (id: ReturnType<typeof setTimeout>) => {
-      const idx = zamanlayicilar.current.indexOf(id);
-      if (idx !== -1) zamanlayicilar.current.splice(idx, 1);
-    };
-    const t1 = setTimeout(() => {
-      unut(t1);
-      setSlaytlar((prev) => {
-        const sonraki = [...prev, yeni];
-        setAktif(sonraki.length - 1); // yeni gelen anı öne çıkar
-        return sonraki;
-      });
-      const t2 = setTimeout(() => {
-        unut(t2);
-        setBildirim(null);
-      }, 1500);
-      zamanlayicilar.current.push(t2);
-    }, 1800);
-    zamanlayicilar.current.push(t1);
-  }, []);
-
-  useEffect(() => {
-    const t = setInterval(yeniAniEkle, 9000);
-    return () => clearInterval(t);
-  }, [yeniAniEkle]);
-
-  // İndeks listeyle senkron kalsın: liste küçülürse (örn. moderasyon kaldırması)
-  // aktif indeks sınır dışına taşmasın.
-  useEffect(() => {
-    if (slaytlar.length === 0) return;
-    setAktif((i) => (i >= slaytlar.length ? slaytlar.length - 1 : i));
-  }, [slaytlar.length]);
-
-  // Boş liste: çökme / boş ekran yerine zarif "fotoğraf bekleniyor" durumu.
-  if (slaytlar.length === 0) {
-    return (
-      <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden bg-[#1a1613] text-center text-white">
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between p-6 sm:p-10">
-          <div className="flex items-center gap-2 text-white/90">
-            <span className="flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-rose opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose" />
-            </span>
-            <span className="text-sm font-medium uppercase tracking-widest">
-              Canlı
-            </span>
-          </div>
-          <Link
-            href="/panel/slayt"
-            className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur transition-colors hover:bg-white/25"
-            aria-label="Çıkış"
-          >
-            <X className="h-5 w-5" />
-          </Link>
-        </div>
-        <motion.span
-          animate={{ scale: [1, 1.08, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10"
-        >
-          <Camera className="h-9 w-9 text-white/80" />
-        </motion.span>
-        <p className="mt-6 font-display text-2xl font-semibold drop-shadow-lg sm:text-4xl">
-          {baslik}
-        </p>
-        <p className="mt-3 max-w-md px-6 text-base text-white/70 sm:text-lg">
-          İlk anılar bekleniyor… Misafirler fotoğraf paylaştıkça burada canlı
-          olarak görünecek.
-        </p>
-      </div>
+    if (fotograflar.length <= 1) return;
+    const t = setInterval(
+      () => setAktif((i) => (i + 1) % fotograflar.length),
+      GECIS_MS,
     );
+    return () => clearInterval(t);
+  }, [fotograflar.length]);
+
+  // Periyodik yeni fotoğraf çekme + imzalı URL tazeleme
+  useEffect(() => {
+    let iptal = false;
+    async function cek() {
+      try {
+        const res = await fetch(`/api/slayt/${slug}`, { cache: "no-store" });
+        if (!res.ok || iptal) return;
+        const data = await res.json();
+        const gelen: SlaytFoto[] = data.fotograflar ?? [];
+        const yeniler = gelen.filter((f) => !bilinenRef.current.has(f.id));
+        setFotograflar(gelen); // URL'leri her seferinde tazele (imza süresi)
+        gelen.forEach((f) => bilinenRef.current.add(f.id));
+        if (yeniler.length > 0) {
+          const son = yeniler[yeniler.length - 1];
+          const idx = gelen.findIndex((f) => f.id === son.id);
+          if (idx >= 0) setAktif(idx);
+          setBildirim(son);
+          if (bildirimTimer.current) clearTimeout(bildirimTimer.current);
+          bildirimTimer.current = setTimeout(() => setBildirim(null), 4500);
+        }
+      } catch {
+        /* sessiz — bir sonraki turda dene */
+      }
+    }
+    const t = setInterval(cek, POLL_MS);
+    return () => {
+      iptal = true;
+      clearInterval(t);
+      if (bildirimTimer.current) clearTimeout(bildirimTimer.current);
+    };
+  }, [slug]);
+
+  // İndeks sınır güvenliği
+  useEffect(() => {
+    if (fotograflar.length === 0) return;
+    setAktif((i) => (i >= fotograflar.length ? fotograflar.length - 1 : i));
+  }, [fotograflar.length]);
+
+  if (fotograflar.length === 0) {
+    return <BosEkran baslik={baslik} qr={qr} />;
   }
 
-  // Güvenli aktif indeks — render anında listeyle uyumsuzluk olsa bile undefined
-  // erişimi (mevcut.id çökmesi) yaşanmaz.
-  const guvenliIndex = ((aktif % slaytlar.length) + slaytlar.length) % slaytlar.length;
-  const mevcut = slaytlar[guvenliIndex];
+  const idx =
+    ((aktif % fotograflar.length) + fotograflar.length) % fotograflar.length;
+  const mevcut = fotograflar[idx];
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-[#1a1613]">
-      {/* Arka plan slayt */}
+    <div className="relative h-[100dvh] w-screen overflow-hidden bg-black">
       <AnimatePresence mode="popLayout">
         <motion.div
           key={mevcut.id}
-          initial={{ opacity: 0, scale: 1.08 }}
-          animate={{ opacity: 1, scale: 1.14 }}
-          exit={{ opacity: 0, scale: 1.18 }}
-          transition={{
-            opacity: { duration: 1.2 },
-            scale: { duration: 6, ease: "linear" },
-          }}
-          className={`absolute inset-0 bg-gradient-to-br ${mevcut.tone}`}
-        />
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1.1 }}
+          className="absolute inset-0"
+        >
+          {/* Bulanık dolgu arka plan */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={mevcut.url}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+          />
+          {/* Ana fotoğraf (Ken Burns) */}
+          <motion.img
+            src={mevcut.url}
+            alt={mevcut.guest_name ?? "Anı"}
+            initial={{ scale: 1.04 }}
+            animate={{ scale: 1.12 }}
+            transition={{ duration: GECIS_MS / 1000 + 1.2, ease: "linear" }}
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+        </motion.div>
       </AnimatePresence>
 
-      {/* Karartma katmanı */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/30" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-black/35" />
 
       {/* Üst bar */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between p-6 sm:p-10">
         <div className="flex items-center gap-2 text-white/90">
-          <span className="flex h-2.5 w-2.5">
+          <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-rose opacity-75" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose" />
           </span>
@@ -174,50 +133,48 @@ export function Slideshow({ baslik }: { baslik: string }) {
             Canlı
           </span>
         </div>
-        <Link
-          href="/panel/slayt"
-          className="rounded-full bg-white/15 p-2.5 text-white backdrop-blur transition-colors hover:bg-white/25"
-          aria-label="Çıkış"
-        >
-          <X className="h-5 w-5" />
-        </Link>
+        <div className="text-right text-white/85">
+          <span className="font-display text-3xl font-semibold drop-shadow-lg sm:text-4xl">
+            {fotograflar.length}
+          </span>
+          <span className="ml-2 text-sm uppercase tracking-widest">anı</span>
+        </div>
       </div>
 
       {/* Alt bilgi */}
-      <div className="absolute inset-x-0 bottom-0 p-8 text-white sm:p-14">
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-7 text-white sm:p-12">
         <motion.div
           key={`bilgi-${mevcut.id}`}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
         >
           <p className="font-display text-3xl font-semibold drop-shadow-lg sm:text-5xl">
             {baslik}
           </p>
-          <div className="mt-3 flex items-center gap-2 text-white/85">
-            <Camera className="h-4 w-4" />
-            <span className="text-base sm:text-lg">
-              {mevcut.guest_name} paylaştı
-            </span>
-          </div>
+          {mevcut.guest_name && (
+            <div className="mt-2 flex items-center gap-2 text-white/85">
+              <Camera className="h-4 w-4" />
+              <span className="text-base sm:text-lg">
+                {mevcut.guest_name} paylaştı
+              </span>
+            </div>
+          )}
         </motion.div>
 
-        {/* İlerleme noktaları */}
-        <div className="mt-6 flex gap-1.5">
-          {slaytlar.slice(-12).map((s, i, arr) => {
-            const gercekIndex = slaytlar.length - arr.length + i;
-            return (
-              <span
-                key={s.id}
-                className={`h-1 rounded-full transition-all duration-500 ${
-                  gercekIndex === guvenliIndex
-                    ? "w-8 bg-white"
-                    : "w-3 bg-white/40"
-                }`}
-              />
-            );
-          })}
-        </div>
+        {/* QR köşe — "sen de paylaş" */}
+        {qr && (
+          <div className="hidden shrink-0 items-center gap-3 rounded-2xl bg-white/90 p-3 shadow-2xl backdrop-blur sm:flex">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr} alt="Yükleme QR" className="h-20 w-20 rounded-lg" />
+            <div className="pr-1 text-foreground">
+              <p className="font-display text-sm font-semibold">Sen de paylaş</p>
+              <p className="text-xs text-muted-foreground">
+                Okut, anını yükle 💛
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* "Yeni anı geldi" bildirimi */}
@@ -228,37 +185,71 @@ export function Slideshow({ baslik }: { baslik: string }) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ type: "spring", stiffness: 180, damping: 16 }}
-            className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2"
+            className="absolute left-1/2 top-10 z-20 -translate-x-1/2"
           >
-            <div className="flex items-center gap-4 rounded-3xl bg-white/95 px-8 py-6 shadow-2xl backdrop-blur">
+            <div className="flex items-center gap-4 rounded-3xl bg-white/95 px-7 py-5 shadow-2xl backdrop-blur">
               <motion.span
                 animate={{ rotate: [0, -12, 12, 0] }}
                 transition={{ duration: 0.6, repeat: 1 }}
-                className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground"
               >
-                <Sparkles className="h-7 w-7" />
+                <Sparkles className="h-6 w-6" />
               </motion.span>
               <div>
-                <p className="font-display text-xl font-semibold text-foreground">
+                <p className="font-display text-lg font-semibold text-foreground">
                   Yeni anı geldi! 🎉
                 </p>
                 <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Heart className="h-3.5 w-3.5 fill-rose text-rose" />
-                  {bildirim.guest_name} az önce paylaştı
+                  {bildirim.guest_name ?? "Bir misafir"} az önce paylaştı
                 </p>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
 
-      {/* Sayaç */}
-      <div className="absolute right-6 top-1/2 hidden -translate-y-1/2 text-right text-white/80 sm:block sm:right-10">
-        <p className="font-display text-6xl font-semibold drop-shadow-lg">
-          {slaytlar.length}
-        </p>
-        <p className="text-sm uppercase tracking-widest">anı</p>
+function BosEkran({ baslik, qr }: { baslik: string; qr: string }) {
+  return (
+    <div className="relative flex h-[100dvh] w-screen flex-col items-center justify-center overflow-hidden bg-[#1a1613] text-center text-white">
+      <div className="absolute inset-x-0 top-0 flex items-center gap-2 p-6 text-white/90 sm:p-10">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-2.5 w-2.5 animate-ping rounded-full bg-rose opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose" />
+        </span>
+        <span className="text-sm font-medium uppercase tracking-widest">
+          Canlı
+        </span>
       </div>
+
+      <motion.span
+        animate={{ scale: [1, 1.08, 1] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/10"
+      >
+        <Camera className="h-9 w-9 text-white/80" />
+      </motion.span>
+      <p className="mt-6 font-display text-2xl font-semibold drop-shadow-lg sm:text-4xl">
+        {baslik}
+      </p>
+      <p className="mt-3 max-w-md px-6 text-base text-white/70 sm:text-lg">
+        İlk anılar bekleniyor… Misafirler fotoğraf paylaştıkça burada canlı
+        olarak görünecek.
+      </p>
+
+      {qr && (
+        <div className="mt-8 flex items-center gap-3 rounded-2xl bg-white/90 p-3 text-foreground shadow-2xl">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt="Yükleme QR" className="h-24 w-24 rounded-lg" />
+          <div className="pr-2 text-left">
+            <p className="font-display text-sm font-semibold">İlk paylaşan ol</p>
+            <p className="text-xs text-muted-foreground">QR&apos;ı okut, yükle</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

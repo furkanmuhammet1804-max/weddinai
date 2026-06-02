@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Camera, Sparkles, Heart } from "lucide-react";
 import { showroomVerisi } from "@/lib/oda/veri";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
+import { ShowroomGaleri } from "@/components/showroom/showroom-galeri";
 
 // Herkese açık vitrin — yalnızca müşterinin onayladığı fotoğraflar.
 export const dynamic = "force-dynamic";
@@ -52,21 +53,7 @@ export default async function ShowroomPage(
             </p>
           </div>
         ) : (
-          <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
-            {fotograflar.map((f) => (
-              <div key={f.id} className="mb-4 break-inside-avoid">
-                <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={f.url}
-                    alt="Anı"
-                    loading="lazy"
-                    className="w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <ShowroomGaleri fotograflar={fotograflar} />
         )}
 
         <div className="mt-14 text-center">

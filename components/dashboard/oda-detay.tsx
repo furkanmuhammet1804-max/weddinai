@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   Store,
+  MonitorPlay,
 } from "lucide-react";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
@@ -50,6 +51,7 @@ export function OdaDetay({
   const musteriLink = origin ? `${origin}/oda/${oda.slug}` : "";
   const misafirLink = origin ? `${origin}/e/${oda.slug}` : "";
   const showroomLink = origin ? `${origin}/showroom/${oda.slug}` : "";
+  const slaytLink = origin ? `${origin}/slayt/${oda.slug}` : "";
 
   useEffect(() => {
     if (!misafirLink) return;
@@ -150,6 +152,18 @@ export function OdaDetay({
         <LinkSatiri link={showroomLink} />
         <div className="mt-3">
           <Ac link={showroomLink} etiket="Vitrini aç" />
+        </div>
+      </Bolum>
+
+      {/* Canlı Slayt */}
+      <Bolum
+        baslik="Canlı Slayt (Düğün Ekranı)"
+        aciklama="Salondaki ekrana/projeksiyona bu linki aç. Misafirler yükledikçe fotoğraflar canlı akar."
+        icon={MonitorPlay}
+      >
+        <LinkSatiri link={slaytLink} />
+        <div className="mt-3">
+          <Ac link={slaytLink} etiket="Slaytı başlat" />
         </div>
       </Bolum>
 

@@ -1,18 +1,23 @@
 import { notFound } from "next/navigation";
 import { Slideshow } from "@/components/slideshow/slideshow";
-import { etkinlikler } from "@/lib/mock-data";
+import { slaytVerisi } from "@/lib/oda/veri";
 
-export function generateStaticParams() {
-  return etkinlikler.map((e) => ({ slug: e.slug }));
-}
+// Canlı slayt — gerçek zamanlı, istek anında.
+export const dynamic = "force-dynamic";
 
 export default async function SlaytPage(props: PageProps<"/slayt/[slug]">) {
   const { slug } = await props.params;
-  const etkinlik = etkinlikler.find((e) => e.slug === slug);
+  const temiz = typeof slug === "string" ? slug.trim() : "";
+  if (!temiz) notFound();
 
-  if (!etkinlik) {
-    notFound();
-  }
+  const veri = await slaytVerisi(temiz);
+  if (!veri) notFound();
 
-  return <Slideshow baslik={etkinlik.title} />;
+  return (
+    <Slideshow
+      baslik={veri.bilgi.title}
+      slug={veri.bilgi.slug}
+      ilk={veri.fotograflar}
+    />
+  );
 }
