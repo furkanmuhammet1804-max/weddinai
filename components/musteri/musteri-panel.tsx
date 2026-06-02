@@ -316,8 +316,8 @@ export function MusteriPanel({
         <div className="mt-4 flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary-soft/40 px-4 py-3 text-sm text-primary-deep">
           <Star className="h-4 w-4 shrink-0" />
           <p>
-            <span className="font-semibold">{showroomSayi}</span> fotoğraf
-            showroom&apos;da yayında. Fotoğrafa tıklayıp büyütebilir, tek tek ya
+            <span className="font-semibold">{showroomSayi}</span>{" "}
+            fotoğraf showroom&apos;da yayında. Fotoğrafa tıklayıp büyütebilir, tek tek ya
             da toplu indirebilirsin.
           </p>
         </div>
