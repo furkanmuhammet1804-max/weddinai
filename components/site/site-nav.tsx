@@ -12,7 +12,7 @@ const baglantilar = [
   { href: "/#ozellikler", label: "Özellikler" },
   { href: "/#nasil-calisir", label: "Nasıl Çalışır" },
   { href: "/#etkinlikler", label: "Etkinlik Türleri" },
-  { href: "/e/elif-mert", label: "Demo Misafir Sayfası" },
+  { href: "/fiyatlar", label: "Fiyatlar" },
 ];
 
 export function SiteNav() {
