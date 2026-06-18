@@ -6,25 +6,25 @@
    ============================================================= */
 
 :root {
-  /* Zemin & metin — varsayılan: Pudra Gül (pembe) */
-  --background: #fdf7f6;
-  --foreground: #2b1f1e;
-  --card: #ffffff;
-  --card-foreground: #2b1f1e;
-  --muted: #f6e8e7;
-  --muted-foreground: #8c7370;
-  --border: #efdcda;
+  /* Zemin & metin — VARSAYILAN MARKA TEMASI: Champagne (Şampanya) */
+  --background: #f8f4ee; /* fildişi-şampanya zemin */
+  --foreground: #2b2b2b;
+  --card: #fffdf9; /* kırık beyaz yüzey */
+  --card-foreground: #2b2b2b;
+  --muted: #f0e9dc;
+  --muted-foreground: #8a7e69;
+  --border: #e8ddc7;
 
-  /* Aksanlar */
-  --primary: #d2737a; /* pudra gül */
+  /* Aksanlar — şampanya/gold */
+  --primary: #c19a53; /* CTA gold (beyaz metinle erişilebilir kontrast) */
   --primary-foreground: #ffffff;
-  --primary-soft: #f9e7e7;
-  --primary-deep: #a8525a; /* koyu gül — metin vurguları */
-  --accent: #e08e92; /* açık gül */
-  --rose: #f0c9cb;
-  --rose-soft: #fbeceb;
+  --primary-soft: #f3ead6;
+  --primary-deep: #957532; /* koyu gold — metin vurguları */
+  --accent: #d4b483; /* marka şampanyası — gradyan/glow aksanı */
+  --rose: #e8dcc4;
+  --rose-soft: #f6efe1;
 
-  --ring: #e08e92;
+  --ring: #d4b483;
   --radius: 1rem;
 }
 

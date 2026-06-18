@@ -277,7 +277,7 @@ export function DavetiyeSiparis() {
           aciklama="Davetiyenizin ruhunu seçin. Seçtiğiniz tema, yandaki önizlemede anında canlanır."
         >
           <div className="grid gap-8 lg:grid-cols-[1fr_15rem] lg:items-start lg:gap-10">
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
               {DAVETIYE_TEMALAR.map((t) => (
                 <TemaKart key={t.id} tema={t} secili={tema === t.id} onSec={() => setTema(t.id)} />
               ))}
@@ -707,17 +707,30 @@ function TemaKart({ tema, secili, onSec }: { tema: DavetiyeTema; secili: boolean
           : "border-border hover:border-primary/40"
       }`}
     >
+      {/* Mini davetiye önizlemesi — temanın gerçek görünümü (zemin, yazı, vurgu, buton) */}
       <div
-        className="flex h-24 flex-col items-center justify-center gap-1.5 rounded-xl"
-        style={{ background: tema.bg }}
+        className="flex h-36 flex-col items-center justify-center gap-1 rounded-xl px-3 text-center"
+        style={{ background: tema.bg, color: tema.yazi }}
       >
-        <span className="text-[8px] font-semibold tracking-[0.28em]" style={{ color: tema.alt }}>
+        <span className="text-[7px] font-semibold tracking-[0.3em]" style={{ color: tema.alt }}>
           DAVETLİSİNİZ
         </span>
-        <span className="font-display text-2xl italic leading-none" style={{ color: tema.vurgu }}>
+        <span className="font-display text-[15px] leading-tight" style={{ color: tema.yazi }}>
+          Elif
+        </span>
+        <span className="font-display text-base italic leading-none" style={{ color: tema.vurgu }}>
           &amp;
         </span>
-        <span className="h-px w-7" style={{ background: tema.vurgu, opacity: 0.5 }} />
+        <span className="font-display text-[15px] leading-tight" style={{ color: tema.yazi }}>
+          Burak
+        </span>
+        <span className="my-1 h-px w-8" style={{ background: tema.vurgu, opacity: 0.55 }} />
+        <span
+          className="rounded-full px-3 py-1 text-[7px] font-semibold tracking-wide"
+          style={{ background: tema.vurgu, color: tema.butonYazi }}
+        >
+          Davetiyeyi Aç
+        </span>
       </div>
       <div className="flex items-center justify-between px-1.5 py-2">
         <span className="text-sm font-medium">{tema.ad}</span>
