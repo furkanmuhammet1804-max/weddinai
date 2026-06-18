@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Play,
   Pause,
@@ -11,6 +11,7 @@ import {
   Heart,
   Loader2,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { temaBul, type DavetiyeTemaId } from "@/lib/davetiye-tema";
 import { CiftIsim } from "@/components/davetiye/cift-isim";
@@ -83,10 +84,98 @@ export function DavetiyeGoster({ data }: { data: Data }) {
   const kapak = data.gelinFoto ?? data.galeri[0] ?? data.damatFoto;
   const saveRef = useRef<HTMLElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [caliyor, setCaliyor] = useState(false);
-  const [ytAcik, setYtAcik] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ytPlayerRef = useRef<any>(null);
+  const ytReadyRef = useRef(false);
+  const ytKutuRef = useRef<HTMLDivElement>(null);
   const yt = data.muzikYoutube ? ytId(data.muzikYoutube) : null;
+  const muzikVar = !!(data.muzikUrl || yt);
+
+  const [acildi, setAcildi] = useState(!muzikVar); // müzik yoksa karşılama ekranı atlanır
+  const [caliyor, setCaliyor] = useState(false);
+  const [basliyor, setBasliyor] = useState(false);
+  const [hata, setHata] = useState<string | null>(null);
   const hedef = useMemo(() => hedefTarih(data.etkinlikler), [data.etkinlikler]);
+
+  // Asla sessiz başarısızlık — müzik açılamazsa kullanıcıya net bilgi + tekrar deneme yolu.
+  const MUZIK_HATA = "Müzik şu anda başlatılamadı. Lütfen tekrar dokunarak deneyin.";
+
+  // Hata bildirimi bir süre sonra kendiliğinden kapanır.
+  useEffect(() => {
+    if (!hata) return;
+    const t = setTimeout(() => setHata(null), 6000);
+    return () => clearTimeout(t);
+  }, [hata]);
+
+  // YouTube IFrame Player API — gizli ama GERÇEK boyutlu, ekran dışı.
+  // (1px/opacity-0 iframe iOS Safari'de sesi engeller; ekran dışı + gerçek boyut güvenli kalıptır.)
+  useEffect(() => {
+    if (!yt) return;
+    let iptal = false;
+    function apiHazir(): Promise<void> {
+      return new Promise((resolve) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const w = window as any;
+        if (w.YT && w.YT.Player) return resolve();
+        const onceki = w.onYouTubeIframeAPIReady;
+        w.onYouTubeIframeAPIReady = () => { onceki?.(); resolve(); };
+        if (!document.getElementById("yt-iframe-api")) {
+          const s = document.createElement("script");
+          s.id = "yt-iframe-api";
+          s.src = "https://www.youtube.com/iframe_api";
+          document.head.appendChild(s);
+        }
+      });
+    }
+    apiHazir().then(() => {
+      if (iptal || !ytKutuRef.current) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any;
+      ytPlayerRef.current = new w.YT.Player(ytKutuRef.current, {
+        videoId: yt,
+        playerVars: {
+          autoplay: 0, controls: 0, loop: 1, playlist: yt,
+          playsinline: 1, rel: 0, modestbranding: 1,
+        },
+        events: {
+          onReady: () => { ytReadyRef.current = true; },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onStateChange: (e: any) => {
+            if (e.data === 1) setCaliyor(true);                       // PLAYING
+            else if (e.data === 2 || e.data === 0) setCaliyor(false); // PAUSED / ENDED
+          },
+        },
+      });
+    });
+    return () => {
+      iptal = true;
+      try { ytPlayerRef.current?.destroy?.(); } catch {}
+    };
+  }, [yt]);
+
+  // --- Müzik başlatma yardımcıları (hepsi başarı/başarısızlığı boolean döner) ---
+  async function mp3Baslat(): Promise<boolean> {
+    const a = audioRef.current;
+    if (!a) return false;
+    try { a.muted = false; await a.play(); return true; } catch { return false; }
+  }
+  async function ytBaslat(): Promise<boolean> {
+    const p = ytPlayerRef.current;
+    if (!p || !ytReadyRef.current) return false;
+    try { p.unMute?.(); p.setVolume?.(100); p.playVideo(); } catch { return false; }
+    // Çalmayı gerçekten doğrula — sessiz başarısızlığı yakala.
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 180));
+      const st = p.getPlayerState?.();
+      if (st === 1 || st === 3) return true; // PLAYING / BUFFERING
+    }
+    return false;
+  }
+  async function muzigiBaslat(): Promise<boolean> {
+    if (data.muzikUrl) return mp3Baslat();
+    if (yt) return ytBaslat();
+    return false;
+  }
 
   // Tema renklerini CSS değişkenlerine bağla — tüm alt bölümler bundan türer.
   const kokStil = {
@@ -105,17 +194,36 @@ export function DavetiyeGoster({ data }: { data: Data }) {
   const heroYazi = kapak ? "#ffffff" : tema.yazi;
   const heroAlt = kapak ? "rgba(255,255,255,0.72)" : tema.alt;
 
-  function muzikToggle() {
+  // Karşılama ekranı: tek dokunuş → müzik başlar → davetiye açılır (Seçenek A).
+  async function girisBaslat(muzikIle: boolean) {
+    setHata(null);
+    if (muzikIle && muzikVar) {
+      setBasliyor(true);
+      const ok = await muzigiBaslat();
+      setBasliyor(false);
+      if (!ok) { setHata(MUZIK_HATA); return; } // gate'te kal, kullanıcıyı bilgilendir
+      setCaliyor(true);
+    }
+    setAcildi(true);
+  }
+
+  // Kalıcı müzik düğmesi (Seçenek B) — açıl/durdur, durumu net gösterir, sessiz başarısız olmaz.
+  async function muzikToggle() {
+    setHata(null);
     if (data.muzikUrl && audioRef.current) {
-      if (caliyor) { audioRef.current.pause(); setCaliyor(false); }
-      else { audioRef.current.play().catch(() => {}); setCaliyor(true); }
+      if (caliyor) { audioRef.current.pause(); setCaliyor(false); return; }
+      const ok = await mp3Baslat();
+      if (ok) setCaliyor(true); else setHata(MUZIK_HATA);
       return;
     }
-    if (yt) { setYtAcik((v) => !v); setCaliyor((v) => !v); }
+    if (yt) {
+      if (caliyor) { try { ytPlayerRef.current?.pauseVideo?.(); } catch {} setCaliyor(false); return; }
+      const ok = await ytBaslat();
+      if (ok) setCaliyor(true); else setHata(MUZIK_HATA);
+    }
   }
   function ac() {
     saveRef.current?.scrollIntoView({ behavior: "smooth" });
-    if (!caliyor) muzikToggle();
   }
 
   return (
@@ -124,19 +232,90 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       style={kokStil}
       data-tema={tema.id}
     >
-      {/* gizli müzik */}
-      {data.muzikUrl && <audio ref={audioRef} src={data.muzikUrl} loop preload="none" />}
-      {yt && ytAcik && (
-        <iframe
-          title="müzik"
-          className="pointer-events-none fixed h-1 w-1 opacity-0"
-          src={`https://www.youtube.com/embed/${yt}?autoplay=1&loop=1&playlist=${yt}`}
-          allow="autoplay"
-        />
+      {/* gizli MP3 — gesture içinde anında çalması için preload="auto" */}
+      {data.muzikUrl && <audio ref={audioRef} src={data.muzikUrl} loop preload="auto" />}
+      {/* gizli YouTube oynatıcı — gerçek boyut, ekran dışı (mobil ses için) */}
+      {yt && (
+        <div aria-hidden className="pointer-events-none fixed -left-[9999px] top-0 h-[180px] w-[320px] opacity-0">
+          <div ref={ytKutuRef} />
+        </div>
       )}
 
-      {/* sabit müzik butonu */}
-      {(data.muzikUrl || yt) && (
+      {/* KARŞILAMA EKRANI (Seçenek A) — tek dokunuş müziği başlatır, sonra davetiye açılır */}
+      <AnimatePresence>
+        {!acildi && (
+          <motion.div
+            key="gate"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+            className="fixed inset-0 z-[70] flex flex-col items-center justify-center px-8 text-center"
+            style={{ background: tema.bg }}
+          >
+            {kapak && (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={kapak}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ filter: "blur(8px)", transform: "scale(1.1)" }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/45 to-black/75" />
+              </>
+            )}
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9 }}
+              className="relative z-10 flex w-full max-w-sm flex-col items-center"
+            >
+              <p className="font-display text-sm tracking-[0.3em]" style={{ color: kapak ? "rgba(255,255,255,0.75)" : tema.alt }}>
+                DAVETLİSİNİZ
+              </p>
+              <CiftIsim
+                gelin={data.gelin}
+                damat={data.damat}
+                className="mt-5"
+                isimClassName="font-display text-4xl leading-[1.1] sm:text-5xl"
+                ampClassName="font-display text-2xl italic sm:text-3xl"
+                isimStyle={{ color: kapak ? "#fff" : tema.yazi }}
+                ampStyle={{ color: tema.vurgu }}
+              />
+              <button
+                onClick={() => girisBaslat(true)}
+                disabled={basliyor}
+                className="mt-10 inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-base font-semibold shadow-xl transition hover:brightness-105 disabled:opacity-70"
+                style={{ background: tema.vurgu, color: tema.butonYazi }}
+              >
+                {basliyor ? <Loader2 className="h-5 w-5 animate-spin" /> : <span className="text-lg leading-none">🎵</span>}
+                {muzikVar ? "Davetiyeyi Müzikle Aç" : "Davetiyeyi Aç"}
+              </button>
+              {muzikVar && (
+                <button
+                  onClick={() => girisBaslat(false)}
+                  className="mt-4 text-sm underline-offset-4 transition hover:underline"
+                  style={{ color: kapak ? "rgba(255,255,255,0.8)" : tema.alt }}
+                >
+                  Müziksiz devam et
+                </button>
+              )}
+              {hata && (
+                <div
+                  className="mt-6 flex max-w-xs items-start gap-2 rounded-2xl px-4 py-3 text-left text-sm"
+                  style={{ background: "rgba(0,0,0,0.5)", color: "#fff" }}
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>{hata}</span>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* sabit müzik butonu (Seçenek B kalıcı kontrol) — gate kapanınca görünür */}
+      {muzikVar && acildi && (
         <button
           onClick={muzikToggle}
           className="fixed right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition"
@@ -144,11 +323,24 @@ export function DavetiyeGoster({ data }: { data: Data }) {
             marginTop: "env(safe-area-inset-top)",
             background: "rgba(0,0,0,0.38)",
             color: "#fff",
+            boxShadow: caliyor ? `0 0 0 2px ${tema.vurgu}` : "none",
           }}
-          aria-label="Müzik"
+          aria-label={caliyor ? "Müziği durdur" : "Müziği başlat"}
         >
           {caliyor ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
         </button>
+      )}
+
+      {/* hata bildirimi (gate dışında) — asla sessiz başarısızlık */}
+      {hata && acildi && (
+        <div
+          className="fixed bottom-5 left-1/2 z-[60] flex max-w-[90vw] -translate-x-1/2 items-center gap-2 rounded-full px-5 py-3 text-sm shadow-lg"
+          style={{ background: "rgba(0,0,0,0.82)", color: "#fff" }}
+          role="alert"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{hata}</span>
+        </div>
       )}
 
       {/* 1) AÇILIŞ */}
@@ -183,17 +375,8 @@ export function DavetiyeGoster({ data }: { data: Data }) {
               className="rounded-full px-7 py-3 text-sm font-semibold shadow-lg transition hover:brightness-105"
               style={{ background: tema.vurgu, color: tema.butonYazi }}
             >
-              Davetiyeyi Aç
+              Detayları Gör
             </button>
-            {(data.muzikUrl || yt) && (
-              <button
-                onClick={muzikToggle}
-                className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm backdrop-blur transition"
-                style={{ borderColor: c.kartBd, color: heroYazi }}
-              >
-                {caliyor ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />} Müziği {caliyor ? "Durdur" : "Başlat"}
-              </button>
-            )}
           </div>
           <ChevronDown className="mx-auto mt-10 h-6 w-6 animate-bounce" style={{ color: heroAlt }} />
         </motion.div>
