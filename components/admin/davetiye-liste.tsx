@@ -17,7 +17,13 @@ import {
 } from "lucide-react";
 import type { Davetiye } from "@/lib/davetiye";
 import { temaBul } from "@/lib/davetiye-tema";
-import { kopyalaVeBildir } from "@/lib/pano";
+import { kopyalaVeBildir, bildir } from "@/lib/pano";
+
+// Kopyalanan davetiye linki daima kanonik üretim alanını gösterir
+// (admin vercel önizleme alanından açılsa bile doğru link paylaşılır).
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.weddinai.com"
+).replace(/\/+$/, "");
 
 // (Sunucu modülünü client'a çekmemek için durumlar burada da tanımlı.)
 const DURUMLAR: { id: string; etiket: string; sinif: string }[] = [
@@ -117,6 +123,28 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
     else if (r.slug) setSlug(r.slug);
   }
 
+  // Davetiye linkini panoya kopyala — açık hata ayıklama + slug guard +
+  // garantili fallback (kopyalaVeBildir içinde clipboard API + execCommand).
+  async function linkiKopyala() {
+    const temizSlug = slug.trim();
+    if (!temizSlug) {
+      bildir("Önce bir bağlantı adı (slug) belirleyin.", "hata");
+      return;
+    }
+    const url = `${SITE_URL}/davetiye/${temizSlug}`;
+    console.log("[davetiye] kopyalanacak URL:", url);
+    try {
+      const ok = await kopyalaVeBildir(url, "Link kopyalandı");
+      console.log("[davetiye] kopya sonucu:", ok);
+      if (!ok) setMesaj("Link kopyalanamadı. Linki elle seçip kopyalayın: " + url);
+    } catch (e) {
+      console.error("[davetiye] kopya hatası:", e);
+      const m = e instanceof Error ? e.message : String(e);
+      bildir("Kopyalanamadı: " + m, "hata");
+      setMesaj("Kopyalama hatası: " + m);
+    }
+  }
+
   const rozet = DURUMLAR.find((x) => x.id === durum) ?? DURUMLAR[0];
   const etkinlikler = Array.isArray(d.etkinlikler) ? d.etkinlikler : [];
   const yayinda = durum === "yayinda";
@@ -172,7 +200,7 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
             placeholder="ayse-mehmet"
             className="w-36 bg-background px-2 py-1.5 text-sm outline-none"
           />
-          <button type="button" onClick={slugKaydet} disabled={kaydediyor} className="border-l border-border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50">
+          <button type="button" onClick={slugKaydet} disabled={kaydediyor} title="Bağlantı adını kaydet" aria-label="Bağlantı adını kaydet" className="border-l border-border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50">
             <Link2 className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -187,10 +215,12 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
             </a>
             <button
               type="button"
-              onClick={() => kopyalaVeBildir(`${window.location.origin}/davetiye/${slug}`, "Davetiye linki kopyalandı")}
+              onClick={linkiKopyala}
+              title="Davetiye linkini kopyala"
+              aria-label="Davetiye linkini kopyala"
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
             >
-              <Copy className="h-3.5 w-3.5" /> Kopyala
+              <Copy className="h-3.5 w-3.5" /> Linki Kopyala
             </button>
             <button type="button" onClick={() => durumDegistir("tasarim_hazirlaniyor")} disabled={kaydediyor} className="rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-rose hover:text-rose disabled:opacity-60">
               Yayından kaldır

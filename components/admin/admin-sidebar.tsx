@@ -31,7 +31,7 @@ function NavIcerik({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <>
-      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-4">
+      <nav className="flex-1 space-y-1 px-3 py-4">
         {menu.map((m) => {
           const Icon = m.icon;
           const aktif =
@@ -61,7 +61,7 @@ function NavIcerik({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-      <div className="px-3 pb-4">
+      <div className="shrink-0 px-3 pb-4">
         <CikisButonu />
       </div>
     </>
@@ -148,8 +148,8 @@ export function AdminMobilMenu() {
             onClick={() => setAcik(false)}
             aria-hidden="true"
           />
-          <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[85%] flex-col border-r border-border bg-card shadow-elegant">
-            <div className="flex h-16 items-center justify-between px-6">
+          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col overflow-y-auto overscroll-contain border-r border-border bg-card shadow-elegant">
+            <div className="flex h-16 shrink-0 items-center justify-between px-6">
               <Logo />
               <button
                 type="button"
