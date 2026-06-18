@@ -46,3 +46,6 @@ next-env.d.ts
 .vercel
 
 .vercel
+
+# Supabase CLI yerel link cache (DB şifresi içerir — asla commit etme)
+supabase/.temp/
