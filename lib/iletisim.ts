@@ -1,14 +1,10 @@
 // İletişim / sipariş kanalı. Başlangıçta online ödeme yok; sipariş WhatsApp
-// üzerinden alınır. Numara env'den gelebilir (NEXT_PUBLIC_WHATSAPP_NUMBER,
-// sadece rakam, ülke koduyla; örn. 905551112233). Env yoksa kanonik marka
-// numarasına düşülür — böylece numara her yerde tutarlıdır.
+// üzerinden alınır. Tüm müşterilerin ulaşacağı tek marka numarası burada
+// SABİTTİR — env override'ı bilinçli olarak kaldırıldı ki Vercel'de yanlış bir
+// NEXT_PUBLIC_WHATSAPP_NUMBER ayarlı olsa bile site daima bu numarayı kullansın.
 
 // Kanonik marka numarası: +90 531 913 59 61
-const VARSAYILAN_NUMARA = "905319135961";
-
-export const WHATSAPP_NUMARA = (
-  process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || VARSAYILAN_NUMARA
-).replace(/[^\d]/g, "");
+export const WHATSAPP_NUMARA = "905319135961";
 
 // İnsan-okur biçim (footer / iletişim metinleri için).
 export const TELEFON_GORUNEN = "+90 531 913 59 61";
