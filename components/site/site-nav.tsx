@@ -9,6 +9,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { TemaSecici } from "@/components/theme/tema-secici";
 
 const baglantilar = [
+  { href: "/davetiye", label: "Davetiye" },
   { href: "/showroom", label: "Showroom" },
   { href: "/#ozellikler", label: "Özellikler" },
   { href: "/#nasil-calisir", label: "Nasıl Çalışır" },

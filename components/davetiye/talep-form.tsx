@@ -10,14 +10,19 @@ import {
   Upload,
   X,
   Music,
-  MapPin,
-  Sparkles,
+  CalendarHeart,
+  Users,
+  Plus,
+  Trash2,
+  PenLine,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { Etkinlik } from "@/lib/davetiye";
 
 const MAKS_FOTO = 12;
 const MAKS_BAYT = 25 * 1024 * 1024; // 25 MB
 const MUZIK_TUR = [".mp3", ".wav", ".m4a"];
+const TUR_SECENEKLERI = ["Nişan", "Kına Gecesi", "Düğün Töreni", "Nikah", "Diğer"];
 
 type Form = Record<string, string>;
 
@@ -29,6 +34,9 @@ function uzanti(f: File): string {
 export function DavetiyeTalepForm() {
   const supabase = useRef(createClient());
   const [form, setForm] = useState<Form>({});
+  const [etkinlikler, setEtkinlikler] = useState<Etkinlik[]>([
+    { tur: "Düğün Töreni" },
+  ]);
   const [gelinFoto, setGelinFoto] = useState<File | null>(null);
   const [damatFoto, setDamatFoto] = useState<File | null>(null);
   const [galeri, setGaleri] = useState<File[]>([]);
@@ -37,8 +45,17 @@ export function DavetiyeTalepForm() {
   const [asama, setAsama] = useState("");
   const [hata, setHata] = useState<string | null>(null);
 
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: string) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Etkinlik listesi yardımcıları
+  const setEtk = (i: number, k: keyof Etkinlik, v: string) =>
+    setEtkinlikler((es) => es.map((e, j) => (j === i ? { ...e, [k]: v } : e)));
+  const etkEkle = () =>
+    setEtkinlikler((es) => [...es, { tur: "Kına Gecesi" }]);
+  const etkSil = (i: number) =>
+    setEtkinlikler((es) => es.filter((_, j) => j !== i));
 
   function galeriEkle(list: FileList | null) {
     if (!list) return;
@@ -65,7 +82,12 @@ export function DavetiyeTalepForm() {
       return;
     }
     if (!form.phone?.trim() && !form.email?.trim()) {
-      setHata("Telefon veya e-posta gerekli.");
+      setHata("Size ulaşabilmemiz için telefon veya e-posta gerekli.");
+      return;
+    }
+    const dolu = etkinlikler.filter((x) => x.tur?.trim());
+    if (dolu.length === 0) {
+      setHata("En az bir etkinlik ekleyin (ör. Düğün Töreni).");
       return;
     }
     if (muzik && !MUZIK_TUR.some((t) => muzik.name.toLowerCase().endsWith(t))) {
@@ -79,14 +101,18 @@ export function DavetiyeTalepForm() {
       const res = await fetch("/api/davetiye/talep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, etkinlikler: dolu }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.hata ?? "Talep kaydedilemedi.");
       const id: string = data.id;
 
       const medya: Record<string, unknown> = {};
-      const toplam = (gelinFoto ? 1 : 0) + (damatFoto ? 1 : 0) + galeri.length + (muzik ? 1 : 0);
+      const toplam =
+        (gelinFoto ? 1 : 0) +
+        (damatFoto ? 1 : 0) +
+        galeri.length +
+        (muzik ? 1 : 0);
       let n = 0;
       const ilerlet = () => setAsama(`Materyaller yükleniyor… ${++n}/${toplam}`);
 
@@ -142,45 +168,78 @@ export function DavetiyeTalepForm() {
 
   return (
     <form onSubmit={gonder} className="mx-auto max-w-2xl space-y-8">
-      <Bolum baslik="Çift Bilgileri" ikon={<Heart className="h-4 w-4" />}>
+      <Bolum baslik="İsimler" ikon={<Heart className="h-4 w-4" />}>
         <Alan label="Gelin Adı Soyadı" zorunlu><input className={inp} value={form.gelin_ad ?? ""} onChange={set("gelin_ad")} /></Alan>
         <Alan label="Damat Adı Soyadı" zorunlu><input className={inp} value={form.damat_ad ?? ""} onChange={set("damat_ad")} /></Alan>
         <Alan label="Telefon"><input type="tel" className={inp} value={form.phone ?? ""} onChange={set("phone")} placeholder="05xx xxx xx xx" /></Alan>
         <Alan label="E-posta"><input type="email" className={inp} value={form.email ?? ""} onChange={set("email")} /></Alan>
       </Bolum>
 
-      <Bolum baslik="Kına Bilgileri" ikon={<Sparkles className="h-4 w-4" />}>
-        <Alan label="Kına Tarihi"><input type="date" className={inp} value={form.kina_tarih ?? ""} onChange={set("kina_tarih")} /></Alan>
-        <Alan label="Kına Saati"><input type="time" className={inp} value={form.kina_saat ?? ""} onChange={set("kina_saat")} /></Alan>
-        <Alan label="Kına Mekanı"><input className={inp} value={form.kina_mekan ?? ""} onChange={set("kina_mekan")} /></Alan>
-        <Alan label="Kına Adresi" genis><input className={inp} value={form.kina_adres ?? ""} onChange={set("kina_adres")} /></Alan>
-        <Alan label="Google Maps Linki" genis><input className={inp} value={form.kina_maps ?? ""} onChange={set("kina_maps")} placeholder="https://maps.app.goo.gl/…" /></Alan>
-      </Bolum>
-
-      <Bolum baslik="Düğün Bilgileri" ikon={<MapPin className="h-4 w-4" />}>
-        <Alan label="Düğün Tarihi"><input type="date" className={inp} value={form.dugun_tarih ?? ""} onChange={set("dugun_tarih")} /></Alan>
-        <Alan label="Düğün Saati"><input type="time" className={inp} value={form.dugun_saat ?? ""} onChange={set("dugun_saat")} /></Alan>
-        <Alan label="Düğün Mekanı"><input className={inp} value={form.dugun_mekan ?? ""} onChange={set("dugun_mekan")} /></Alan>
-        <Alan label="Düğün Adresi" genis><input className={inp} value={form.dugun_adres ?? ""} onChange={set("dugun_adres")} /></Alan>
-        <Alan label="Google Maps Linki" genis><input className={inp} value={form.dugun_maps ?? ""} onChange={set("dugun_maps")} placeholder="https://maps.app.goo.gl/…" /></Alan>
-      </Bolum>
-
-      <Bolum baslik="Davetiye İçeriği" ikon={<PenIcon />}>
-        <Alan label="Davetiye Mesajı" genis>
-          <textarea className={`${inp} min-h-24 resize-y`} value={form.mesaj ?? ""} onChange={set("mesaj")} placeholder="Bu özel günümüzde aramızda olmanızı dileriz…" />
-        </Alan>
-        <Alan label="Özel Notlar" genis>
-          <textarea className={`${inp} min-h-20 resize-y`} value={form.notlar ?? ""} onChange={set("notlar")} placeholder="Tasarımla ilgili istekleriniz, renk tercihleri…" />
-        </Alan>
-      </Bolum>
+      {/* Dinamik etkinlik listesi */}
+      <section className="rounded-3xl border border-border bg-card/70 p-6 shadow-sm backdrop-blur">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-soft text-primary-deep"><CalendarHeart className="h-4 w-4" /></span>
+            Etkinlik Bilgileri
+          </h2>
+          <button type="button" onClick={etkEkle} className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3 py-1.5 text-sm font-medium text-primary-deep hover:bg-primary-soft/50">
+            <Plus className="h-4 w-4" /> Etkinlik Ekle
+          </button>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Davetiyede yer almasını istediğiniz tüm organizasyonları ekleyin (Nişan, Kına, Düğün, Nikah…).
+        </p>
+        <div className="space-y-4">
+          {etkinlikler.map((e, i) => (
+            <div key={i} className="rounded-2xl border border-border bg-background/60 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etkinlik {i + 1}</span>
+                {etkinlikler.length > 1 && (
+                  <button type="button" onClick={() => etkSil(i)} aria-label="Etkinliği kaldır" className="rounded-lg p-1.5 text-muted-foreground hover:bg-rose-soft hover:text-rose">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Etkinlik Türü</label>
+                  <select className={inp} value={e.tur} onChange={(ev) => setEtk(i, "tur", ev.target.value)}>
+                    {TUR_SECENEKLERI.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Mekan Adı</label>
+                  <input className={inp} value={e.mekan ?? ""} onChange={(ev) => setEtk(i, "mekan", ev.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Tarih</label>
+                  <input type="date" className={inp} value={e.tarih ?? ""} onChange={(ev) => setEtk(i, "tarih", ev.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Saat</label>
+                  <input type="time" className={inp} value={e.saat ?? ""} onChange={(ev) => setEtk(i, "saat", ev.target.value)} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-sm font-medium">Açık Adres</label>
+                  <input className={inp} value={e.adres ?? ""} onChange={(ev) => setEtk(i, "adres", ev.target.value)} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-sm font-medium">Google Maps Linki <span className="text-muted-foreground">(opsiyonel)</span></label>
+                  <input className={inp} value={e.maps ?? ""} onChange={(ev) => setEtk(i, "maps", ev.target.value)} placeholder="https://maps.app.goo.gl/…" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <Bolum baslik="Fotoğraflar" ikon={<Upload className="h-4 w-4" />}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
           <TekFoto label="Gelin Fotoğrafı" file={gelinFoto} onSec={setGelinFoto} />
           <TekFoto label="Damat Fotoğrafı" file={damatFoto} onSec={setDamatFoto} />
         </div>
-        <div className="mt-2">
-          <p className="mb-2 text-sm font-medium">Galeri (en fazla {MAKS_FOTO})</p>
+        <div className="sm:col-span-2">
+          <p className="mb-2 text-sm font-medium">Galeri (en fazla {MAKS_FOTO}) <span className="text-muted-foreground">— opsiyonel</span></p>
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-4 py-6 text-sm text-muted-foreground hover:border-primary">
             <Upload className="h-4 w-4" /> Fotoğraf ekle
             <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => galeriEkle(e.target.files)} />
@@ -201,16 +260,30 @@ export function DavetiyeTalepForm() {
         </div>
       </Bolum>
 
+      <Bolum baslik="Aile Bilgileri" ikon={<Users className="h-4 w-4" />}>
+        <Alan label="Gelin Tarafı Aile Bilgileri" genis>
+          <textarea className={`${inp} min-h-20 resize-y`} value={form.gelin_aile ?? ""} onChange={set("gelin_aile")} placeholder="Örn. … ailesi (opsiyonel)" />
+        </Alan>
+        <Alan label="Damat Tarafı Aile Bilgileri" genis>
+          <textarea className={`${inp} min-h-20 resize-y`} value={form.damat_aile ?? ""} onChange={set("damat_aile")} placeholder="Örn. … ailesi (opsiyonel)" />
+        </Alan>
+      </Bolum>
+
       <Bolum baslik="🎵 Davetiye Müziği" ikon={<Music className="h-4 w-4" />}>
-        <p className="-mt-1 mb-1 text-sm text-muted-foreground">
-          YouTube bağlantısı paylaşmanız yeterlidir; teknik işlemler tarafımızdan
-          yapılır. Dilerseniz MP3/WAV/M4A dosyası da yükleyebilirsiniz. Müzik,
-          ziyaretçi “Müziği Başlat” butonuna bastığında çalar.
+        <p className="-mt-1 mb-1 text-sm text-muted-foreground sm:col-span-2">
+          <strong>Önerilen:</strong> YouTube bağlantısı paylaşmanız yeterlidir; teknik işlemler tarafımızdan yapılır.
+          Dilerseniz MP3/WAV/M4A dosyası da yükleyebilirsiniz. Müzik, ziyaretçi “🎵 Müziği Başlat” butonuna bastığında çalar.
         </p>
-        <Alan label="YouTube Linki" genis><input className={inp} value={form.muzik_youtube ?? ""} onChange={set("muzik_youtube")} placeholder="https://youtu.be/…" /></Alan>
+        <Alan label="YouTube Müzik Linki" genis><input className={inp} value={form.muzik_youtube ?? ""} onChange={set("muzik_youtube")} placeholder="https://youtube.com/…" /></Alan>
         <Alan label="veya MP3 / WAV / M4A Dosyası" genis>
           <input type="file" accept=".mp3,.wav,.m4a,audio/*" className="block w-full text-sm" onChange={(e) => setMuzik(e.target.files?.[0] ?? null)} />
           {muzik && <p className="mt-1 text-xs text-muted-foreground">{muzik.name}</p>}
+        </Alan>
+      </Bolum>
+
+      <Bolum baslik="Ek Notlar" ikon={<PenLine className="h-4 w-4" />}>
+        <Alan label="Özel istekleriniz / eklemek istedikleriniz" genis>
+          <textarea className={`${inp} min-h-24 resize-y`} value={form.notlar ?? ""} onChange={set("notlar")} placeholder="Tasarım, renk tercihi, davetiye mesajı…" />
         </Alan>
       </Bolum>
 
@@ -238,10 +311,6 @@ export function DavetiyeTalepForm() {
 
 const inp =
   "w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary";
-
-function PenIcon() {
-  return <Sparkles className="h-4 w-4" />;
-}
 
 function Bolum({ baslik, ikon, children }: { baslik: string; ikon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -275,7 +344,7 @@ function Alan({ label, children, zorunlu, genis }: { label: string; children: Re
 function TekFoto({ label, file, onSec }: { label: string; file: File | null; onSec: (f: File | null) => void }) {
   return (
     <div>
-      <p className="mb-1.5 text-sm font-medium">{label}</p>
+      <p className="mb-1.5 text-sm font-medium">{label} <span className="text-muted-foreground">(opsiyonel)</span></p>
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-3 text-sm hover:border-primary">
         {file ? (
           // eslint-disable-next-line @next/next/no-img-element

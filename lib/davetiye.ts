@@ -37,21 +37,24 @@ export function durumEtiket(d: string): string {
   return DAVETIYE_DURUMLAR.find((x) => x.id === d)?.etiket ?? d;
 }
 
+// Çiftin eklediği her organizasyon (Nişan, Kına, Düğün, Nikah, …).
+export interface Etkinlik {
+  tur: string;
+  tarih?: string | null;
+  saat?: string | null;
+  mekan?: string | null;
+  adres?: string | null;
+  maps?: string | null;
+}
+
 export interface DavetiyeGirdi {
   gelin_ad: string;
   damat_ad: string;
   phone?: string | null;
   email?: string | null;
-  kina_tarih?: string | null;
-  kina_saat?: string | null;
-  kina_mekan?: string | null;
-  kina_adres?: string | null;
-  kina_maps?: string | null;
-  dugun_tarih?: string | null;
-  dugun_saat?: string | null;
-  dugun_mekan?: string | null;
-  dugun_adres?: string | null;
-  dugun_maps?: string | null;
+  etkinlikler?: Etkinlik[];
+  gelin_aile?: string | null;
+  damat_aile?: string | null;
   mesaj?: string | null;
   notlar?: string | null;
   muzik_youtube?: string | null;

@@ -1,9 +1,35 @@
 // Public davetiye talebi (metin alanları). Medya dosyaları ayrı yüklenir.
 import { NextResponse } from "next/server";
-import { davetiyeOlustur, type DavetiyeGirdi } from "@/lib/davetiye";
+import {
+  davetiyeOlustur,
+  type DavetiyeGirdi,
+  type Etkinlik,
+} from "@/lib/davetiye";
 
 const kirp = (v: unknown, n: number) =>
   typeof v === "string" ? v.trim().slice(0, n) || null : null;
+
+// Gelen etkinlik listesini güvenli biçimde temizler (en fazla 10, türü olanlar).
+function etkinlikleriTemizle(v: unknown): Etkinlik[] {
+  if (!Array.isArray(v)) return [];
+  const out: Etkinlik[] = [];
+  for (const e of v) {
+    if (!e || typeof e !== "object") continue;
+    const o = e as Record<string, unknown>;
+    const tur = kirp(o.tur, 40);
+    if (!tur) continue; // tür yoksa boş satırdır, atla
+    out.push({
+      tur,
+      tarih: kirp(o.tarih, 20),
+      saat: kirp(o.saat, 20),
+      mekan: kirp(o.mekan, 160),
+      adres: kirp(o.adres, 300),
+      maps: kirp(o.maps, 500),
+    });
+    if (out.length >= 10) break;
+  }
+  return out;
+}
 
 export async function POST(request: Request) {
   let b: Record<string, unknown>;
@@ -35,16 +61,9 @@ export async function POST(request: Request) {
     damat_ad,
     phone,
     email: email?.toLowerCase() ?? null,
-    kina_tarih: kirp(b.kina_tarih, 20),
-    kina_saat: kirp(b.kina_saat, 20),
-    kina_mekan: kirp(b.kina_mekan, 160),
-    kina_adres: kirp(b.kina_adres, 300),
-    kina_maps: kirp(b.kina_maps, 500),
-    dugun_tarih: kirp(b.dugun_tarih, 20),
-    dugun_saat: kirp(b.dugun_saat, 20),
-    dugun_mekan: kirp(b.dugun_mekan, 160),
-    dugun_adres: kirp(b.dugun_adres, 300),
-    dugun_maps: kirp(b.dugun_maps, 500),
+    etkinlikler: etkinlikleriTemizle(b.etkinlikler),
+    gelin_aile: kirp(b.gelin_aile, 500),
+    damat_aile: kirp(b.damat_aile, 500),
     mesaj: kirp(b.mesaj, 1500),
     notlar: kirp(b.notlar, 1500),
     muzik_youtube: kirp(b.muzik_youtube, 300),

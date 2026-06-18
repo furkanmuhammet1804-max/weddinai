@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   });
   return [
     rota("/", 1),
+    rota("/davetiye", 0.9),
     rota("/fiyatlar", 0.8),
     rota("/showroom", 0.8),
     rota("/musteri", 0.5),
