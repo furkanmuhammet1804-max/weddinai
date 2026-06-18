@@ -13,6 +13,8 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { temaBul, type DavetiyeTemaId } from "@/lib/davetiye-tema";
+import { CiftIsim } from "@/components/davetiye/cift-isim";
+import { AileBlogu } from "@/components/davetiye/aile-blogu";
 
 interface Etk {
   tur: string;
@@ -165,11 +167,16 @@ export function DavetiyeGoster({ data }: { data: Data }) {
           className="relative z-10 px-6 text-center"
         >
           <p className="font-display text-sm tracking-[0.3em]" style={{ color: heroAlt }}>DAVETLİSİNİZ</p>
-          <h1 className="font-display mt-5 flex flex-col items-center leading-[1.06]" style={{ color: heroYazi }}>
-            <span className="break-words text-4xl sm:text-6xl">{data.gelin}</span>
-            <span className="my-2 text-3xl italic sm:my-3 sm:text-4xl" style={{ color: tema.vurgu }}>&amp;</span>
-            <span className="break-words text-4xl sm:text-6xl">{data.damat}</span>
-          </h1>
+          <h1 className="sr-only">{data.gelin} & {data.damat} — Davetiye</h1>
+          <CiftIsim
+            gelin={data.gelin}
+            damat={data.damat}
+            className="mt-5"
+            isimClassName="font-display text-4xl leading-[1.08] sm:text-6xl"
+            ampClassName="font-display text-3xl italic sm:text-4xl"
+            isimStyle={{ color: heroYazi }}
+            ampStyle={{ color: tema.vurgu }}
+          />
           <div className="mt-10 flex flex-col items-center gap-3">
             <button
               onClick={ac}
@@ -205,7 +212,14 @@ export function DavetiyeGoster({ data }: { data: Data }) {
               {hedef.getFullYear()}
             </p>
           )}
-          <p className="font-display mt-6 text-2xl">{data.gelin} & {data.damat}</p>
+          <CiftIsim
+            gelin={data.gelin}
+            damat={data.damat}
+            className="mt-6"
+            isimClassName="font-display text-2xl leading-[1.12]"
+            ampClassName="font-display text-xl italic"
+            ampStyle={{ color: c.vurgu }}
+          />
         </Ic>
       </Bolum>
 
@@ -295,11 +309,23 @@ export function DavetiyeGoster({ data }: { data: Data }) {
             {data.mesaj || "Bu özel günümüzde aramızda olmanız bizi mutlu eder."}
           </p>
           {(data.gelinAile || data.damatAile) && (
-            <p className="mt-6 text-sm" style={{ color: c.alt }}>
-              {[data.gelinAile, data.damatAile].filter(Boolean).join("  •  ")}
-            </p>
+            <AileBlogu
+              gelinAile={data.gelinAile}
+              damatAile={data.damatAile}
+              className="mt-7 text-base"
+              adStyle={{ color: c.alt }}
+              ayracStyle={{ background: c.vurgu }}
+            />
           )}
-          <p className="font-display mt-8 text-xl" style={{ color: c.vurgu }}>{data.gelin} & {data.damat}</p>
+          <CiftIsim
+            gelin={data.gelin}
+            damat={data.damat}
+            className="mt-8"
+            isimClassName="font-display text-xl leading-[1.12]"
+            ampClassName="font-display text-lg italic"
+            isimStyle={{ color: c.vurgu }}
+            ampStyle={{ color: c.vurgu }}
+          />
           <p className="mt-10 text-[11px] tracking-widest" style={{ color: c.alt, opacity: 0.7 }}>WeddinAI ile hazırlandı</p>
         </Ic>
       </Bolum>
