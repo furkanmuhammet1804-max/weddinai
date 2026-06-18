@@ -14,20 +14,26 @@ export default function DavetiyeTalepPage() {
   return (
     <>
       <SiteNav />
-      <main className="mx-auto max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
-        <div className="mb-8 text-center">
-          <p className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-soft/50 px-3 py-1 text-xs font-medium text-primary-deep">
-            Dijital Davetiye
-          </p>
-          <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Dijital Davetiye Sipariş Formu
-          </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
-            Dijital davetiyenizin hazırlanabilmesi için aşağıdaki bilgileri
-            eksiksiz doldurunuz. Yıldızlı (*) alanlar zorunludur.
-          </p>
+      <main className="bg-aura">
+        <div className="mx-auto max-w-2xl px-5 pb-20 pt-12 sm:px-8 sm:pb-28 sm:pt-20">
+          <header className="text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-primary-deep/70">
+              WeddinAI · Dijital Davetiye Atölyesi
+            </p>
+            <h1 className="font-display mt-5 text-[2.1rem] font-semibold leading-[1.08] tracking-tight sm:text-5xl">
+              Davetiyenizi birlikte
+              <br className="hidden sm:block" /> tasarlayalım
+            </h1>
+            <div className="divider-gold mx-auto mt-7 w-24" />
+            <p className="mx-auto mt-7 max-w-md text-[15px] leading-relaxed text-muted-foreground">
+              Birkaç zarif adımda dilekleriniz bize ulaşsın; gerisini
+              tasarım ekibimiz titizlikle hazırlasın. <span className="text-primary-deep">*</span> alanlar zorunludur.
+            </p>
+          </header>
+          <div className="mt-12 sm:mt-14">
+            <DavetiyeTalepForm />
+          </div>
         </div>
-        <DavetiyeTalepForm />
       </main>
       <SiteFooter />
     </>
