@@ -1,28 +1,20 @@
 // =============================================================
-// SUNUCU-TARAFI TOPLU İNDİRME — streaming ZIP (archiver, STORE).
+// SUNUCU-TARAFI TOPLU İNDİRME — streaming ZIP (fflate, STORE).
 //
 // Neden sunucu tarafı? İstemci-taraflı JSZip mobilde (özellikle iOS Safari)
-// bellek limitine takılıp sekmeyi çökertiyordu (100+ medya). Burada her dosya
-// Storage'tan tek tek çekilip ZIP'e akıtılır ve doğrudan yanıta stream edilir:
+// bellek limitine takılıp sekmeyi çökertiyordu. Burada her dosya Storage'tan
+// tek tek çekilip ZIP'e akıtılır ve doğrudan yanıta stream edilir:
 //   - İstemci belleği KULLANILMAZ (tarayıcı tek dosya indirir).
-//   - Sunucu belleği sınırlı: aynı anda yalnızca 1 dosya tamponlanır + backpressure.
+//   - Sunucu belleği sınırlı: aynı anda ~1 dosya tamponlanır.
 //   - İmzalı URL süre dolması derdi YOK (admin client storage_path ile indirir).
-//   - STORE (sıkıştırma yok): foto/video zaten sıkışık → hızlı, düşük CPU.
+//   - STORE (ZipPassThrough): foto/video zaten sıkışık → hızlı, düşük CPU.
 //
+// fflate kullanılır (saf ESM/TS) → Vercel serverless'te güvenilir bundle/trace.
 // Çağıran rota oturumu (oda VEYA admin) ÖNCE doğrular; bu fonksiyon eventId ile
 // SINIRLI çalışır.
 // =============================================================
-import { createRequire } from "node:module";
-import { Readable } from "node:stream";
-import type { Archiver } from "archiver";
+import { Zip, ZipPassThrough } from "fflate";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-// archiver CommonJS → Turbopack ESM interop'unu atlamak için Node'da doğrudan require.
-const require = createRequire(import.meta.url);
-const archiver = require("archiver") as (
-  format: string,
-  options?: Record<string, unknown>,
-) => Archiver;
 
 const MEDYA_BUCKET = "event-media";
 
@@ -40,7 +32,6 @@ interface MedyaSatir {
   guest_name: string | null;
 }
 
-// Sıra-no + misafir adı + uzantı (istemci dosyaAdi ile aynı mantık).
 function dosyaAdi(m: MedyaSatir, i: number): string {
   let ext = m.file_type === "video" ? "mp4" : "jpg";
   const dot = m.storage_path.lastIndexOf(".");
@@ -58,8 +49,6 @@ export async function zipIndirYaniti(
   zipAdi: string,
 ): Promise<Response> {
   const admin = createAdminClient();
-  // Tüm satırları event_id ile çek; (varsa) seçim JS'te filtrelenir →
-  // .in() ile büyük id listesinde PostgREST URL limiti sorunundan kaçınırız.
   const { data, error } = await admin
     .from("media")
     .select("id, storage_path, file_type, guest_name")
@@ -82,52 +71,55 @@ export async function zipIndirYaniti(
     return new Response("İndirilecek içerik bulunamadı.", { status: 404 });
   }
 
-  const archive = archiver("zip", { store: true });
-  archive.on("error", (e) =>
-    console.error("[zip-indir] archive error", e?.message),
-  );
-  archive.on("warning", (e) => {
-    if ((e as { code?: string })?.code !== "ENOENT")
-      console.warn("[zip-indir] warning", e?.message);
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const zip = new Zip((err, chunk, final) => {
+        if (err) {
+          console.error("[zip-indir] zip hata", err.message);
+          try { controller.error(err); } catch { /* zaten kapalı */ }
+          return;
+        }
+        if (chunk && chunk.length) {
+          try { controller.enqueue(chunk); } catch { /* iptal edildi */ }
+        }
+        if (final) {
+          try { controller.close(); } catch { /* zaten kapalı */ }
+        }
+      });
+
+      void (async () => {
+        let eklenen = 0;
+        const hatalar: string[] = [];
+        for (let i = 0; i < list.length; i++) {
+          const m = list[i];
+          try {
+            const { data: blob, error: dErr } = await admin.storage
+              .from(MEDYA_BUCKET)
+              .download(m.storage_path);
+            if (dErr || !blob) {
+              hatalar.push(`${m.storage_path}: ${dErr?.message ?? "boş"}`);
+              continue;
+            }
+            const buf = new Uint8Array(await blob.arrayBuffer());
+            const entry = new ZipPassThrough(dosyaAdi(m, i)); // STORE
+            zip.add(entry);
+            entry.push(buf, true); // tek parça + bu giriş bitti
+            eklenen++;
+          } catch (e) {
+            hatalar.push(`${m.storage_path}: ${(e as Error).message}`);
+          }
+        }
+        console.log(
+          `[zip-indir] event=${eventId} eklenen=${eklenen}/${list.length} hata=${hatalar.length}`,
+        );
+        if (hatalar.length)
+          console.error("[zip-indir] atlanan (ilk 5):", hatalar.slice(0, 5));
+        try { zip.end(); } catch (e) { console.error("[zip-indir] end hata", (e as Error).message); }
+      })();
+    },
   });
 
-  // Dosyaları arka planda sırayla ekle; yanıt akışı eşzamanlı stream eder.
-  void (async () => {
-    let eklenen = 0;
-    const hatalar: string[] = [];
-    for (let i = 0; i < list.length; i++) {
-      const m = list[i];
-      try {
-        const { data: blob, error: dErr } = await admin.storage
-          .from(MEDYA_BUCKET)
-          .download(m.storage_path);
-        if (dErr || !blob) {
-          hatalar.push(`${m.storage_path}: ${dErr?.message ?? "boş"}`);
-          continue;
-        }
-        archive.append(Buffer.from(await blob.arrayBuffer()), {
-          name: dosyaAdi(m, i),
-        });
-        eklenen++;
-      } catch (e) {
-        hatalar.push(`${m.storage_path}: ${(e as Error).message}`);
-      }
-    }
-    console.log(
-      `[zip-indir] event=${eventId} eklenen=${eklenen}/${list.length} hata=${hatalar.length}`,
-    );
-    if (hatalar.length)
-      console.error("[zip-indir] atlanan (ilk 5):", hatalar.slice(0, 5));
-    try {
-      await archive.finalize();
-    } catch (e) {
-      console.error("[zip-indir] finalize hata", (e as Error).message);
-    }
-  })();
-
-  // Node Readable → Web ReadableStream (Next yanıt gövdesi için).
-  const web = Readable.toWeb(archive) as unknown as ReadableStream<Uint8Array>;
-  return new Response(web, {
+  return new Response(stream, {
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${zipAdi}"`,
