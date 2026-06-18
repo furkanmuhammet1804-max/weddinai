@@ -75,12 +75,16 @@ export async function POST(request: Request) {
     tema,
   };
 
-  const id = await davetiyeOlustur(girdi);
-  if (!id) {
+  const sonuc = await davetiyeOlustur(girdi);
+  if (!sonuc.id) {
     return NextResponse.json(
-      { hata: "Talep kaydedilemedi. Lütfen tekrar deneyin." },
+      {
+        hata: "Talep kaydedilemedi. Lütfen tekrar deneyin.",
+        // Gerçek veritabanı hatası (teşhis için — Network sekmesinde görünür).
+        sebep: sonuc.hata ?? null,
+      },
       { status: 500 },
     );
   }
-  return NextResponse.json({ ok: true, id });
+  return NextResponse.json({ ok: true, id: sonuc.id });
 }

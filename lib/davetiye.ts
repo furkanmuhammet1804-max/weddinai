@@ -88,33 +88,56 @@ export function medyaUrl(path: string | null | undefined): string | null {
   return admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
-// Talep oluştur → id döner (medya sonra eklenir).
-export async function davetiyeOlustur(g: DavetiyeGirdi): Promise<string | null> {
+export interface OlusturSonuc {
+  id?: string;
+  hata?: string;
+}
+
+// "tema" kolonu henüz migrate edilmemiş mi? Supabase, anlatım katmanına göre
+// FARKLI kod döndürür:
+//   - PostgREST (supabase-js insert): PGRST204 — "...column ... in the schema cache"
+//   - Ham Postgres: 42703 — undefined_column
+// Eskiden yalnızca 42703 kontrol ediliyordu; PGRST204 kaçtığı için fallback
+// tetiklenmiyor ve talep "kaydedilemedi" hatasıyla patlıyordu.
+function temaKolonuYok(e: { code?: string; message?: string }): boolean {
+  return (
+    e.code === "PGRST204" ||
+    e.code === "42703" ||
+    /tema/i.test(e.message ?? "")
+  );
+}
+
+// Talep oluştur → { id } döner (medya sonra eklenir). Hata olursa gerçek
+// veritabanı hatası { hata } olarak döner (generic mesaj yerine).
+export async function davetiyeOlustur(g: DavetiyeGirdi): Promise<OlusturSonuc> {
   const admin = createAdminClient();
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from("davetiyeler")
     .insert({ ...g, durum: "talep_alindi" })
     .select("id")
     .single();
-  if (!error) return data.id as string;
 
-  // "tema" kolonu henüz migrate edilmemişse (42703: undefined column),
-  // temasız tekrar dene — production'ı asla bozma.
-  if (error.code === "42703" && g.tema !== undefined) {
+  // "tema" kolonu yoksa temasız tekrar dene — production'ı asla bozma.
+  if (error && g.tema !== undefined && temaKolonuYok(error)) {
     const temasiz = { ...g };
     delete temasiz.tema;
-    const tekrar = await admin
+    ({ data, error } = await admin
       .from("davetiyeler")
       .insert({ ...temasiz, durum: "talep_alindi" })
       .select("id")
-      .single();
-    if (!tekrar.error) return tekrar.data.id as string;
-    console.error("[davetiye] olustur hata (temasiz)", tekrar.error.message);
-    return null;
+      .single());
   }
 
-  console.error("[davetiye] olustur hata", error.message);
-  return null;
+  if (error) {
+    console.error("[davetiye] olustur hata", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return { hata: [error.code, error.message].filter(Boolean).join(" · ") };
+  }
+  return { id: data!.id as string };
 }
 
 // Yüklenen materyalleri kayda bağla (yalnızca o kayıt).

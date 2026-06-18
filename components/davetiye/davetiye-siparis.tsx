@@ -125,7 +125,10 @@ export function DavetiyeSiparis() {
         body: JSON.stringify({ ...form, etkinlikler, tema }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.hata ?? "Talep kaydedilemedi.");
+      if (!res.ok) {
+        const detay = data.sebep ? ` (${data.sebep})` : "";
+        throw new Error(`${data.hata ?? "Talep kaydedilemedi."}${detay}`);
+      }
       const id: string = data.id;
 
       const medya: Record<string, unknown> = {};
