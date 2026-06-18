@@ -84,6 +84,7 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
   const [slug, setSlug] = useState(d.slug ?? "");
   const [kaydediyor, setKaydediyor] = useState(false);
   const [mesaj, setMesaj] = useState<string | null>(null);
+  const [manuelUrl, setManuelUrl] = useState<string | null>(null);
 
   async function gonder(body: Record<string, unknown>): Promise<{ ok: boolean; slug?: string; hata?: string }> {
     setKaydediyor(true);
@@ -125,6 +126,7 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
 
   // Davetiye linkini panoya kopyala — açık hata ayıklama + slug guard +
   // garantili fallback (kopyalaVeBildir içinde clipboard API + execCommand).
+  // Programatik kopya engellenirse seçilebilir URL alanı gösterilir (manuel).
   async function linkiKopyala() {
     const temizSlug = slug.trim();
     if (!temizSlug) {
@@ -133,16 +135,15 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
     }
     const url = `${SITE_URL}/davetiye/${temizSlug}`;
     console.log("[davetiye] kopyalanacak URL:", url);
+    let ok = false;
     try {
-      const ok = await kopyalaVeBildir(url, "Link kopyalandı");
-      console.log("[davetiye] kopya sonucu:", ok);
-      if (!ok) setMesaj("Link kopyalanamadı. Linki elle seçip kopyalayın: " + url);
+      ok = await kopyalaVeBildir(url, "Link kopyalandı");
     } catch (e) {
       console.error("[davetiye] kopya hatası:", e);
-      const m = e instanceof Error ? e.message : String(e);
-      bildir("Kopyalanamadı: " + m, "hata");
-      setMesaj("Kopyalama hatası: " + m);
     }
+    console.log("[davetiye] kopya sonucu:", ok);
+    // Başarısızsa manuel kopyalama için seçilebilir alanı aç.
+    setManuelUrl(ok ? null : url);
   }
 
   const rozet = DURUMLAR.find((x) => x.id === durum) ?? DURUMLAR[0];
@@ -230,6 +231,34 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
       </div>
 
       {mesaj && <p className="mt-2 text-xs font-medium text-rose">{mesaj}</p>}
+
+      {/* Programatik kopya engellenirse: linki elle seç-kopyala */}
+      {manuelUrl && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+          <span className="text-xs font-medium text-amber-700">
+            Otomatik kopyalama engellendi — linki seçip kopyalayın:
+          </span>
+          <input
+            readOnly
+            value={manuelUrl}
+            onFocus={(e) => e.currentTarget.select()}
+            ref={(el) => {
+              if (el) {
+                el.focus();
+                el.select();
+              }
+            }}
+            className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-2 py-1 text-xs text-foreground outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => setManuelUrl(null)}
+            className="text-xs font-medium text-amber-700 underline"
+          >
+            Kapat
+          </button>
+        </div>
+      )}
 
       {/* İletişim */}
       <div className="mt-4 flex flex-wrap gap-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -130,6 +131,42 @@ export function AdminMobilMenu() {
     };
   }, [acik]);
 
+  // KRİTİK: drawer document.body'ye portal'lanır. Aksi halde header'ın
+  // `backdrop-blur` (backdrop-filter) özelliği, `position:fixed` drawer için
+  // YENİ bir içeren-blok oluşturur ve drawer'ı 64px'lik header kutusuna
+  // hapseder → "menü açılmıyor, arka planda kalıyor". Portal bunu çözer.
+  const drawer =
+    acik && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[100] lg:hidden"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="absolute inset-0 bg-foreground/70 backdrop-blur-sm"
+              onClick={() => setAcik(false)}
+              aria-hidden="true"
+            />
+            <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col overflow-y-auto overscroll-contain border-r border-border bg-card shadow-elegant">
+              <div className="flex h-16 shrink-0 items-center justify-between px-6">
+                <Logo />
+                <button
+                  type="button"
+                  onClick={() => setAcik(false)}
+                  className="rounded-lg p-2 text-foreground/70 hover:bg-muted"
+                  aria-label="Menüyü kapat"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <NavIcerik onNavigate={() => setAcik(false)} />
+            </aside>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <div className="lg:hidden">
       <button
@@ -140,30 +177,7 @@ export function AdminMobilMenu() {
       >
         <Menu className="h-5 w-5" />
       </button>
-
-      {acik && (
-        <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true">
-          <div
-            className="absolute inset-0 bg-foreground/70 backdrop-blur-sm"
-            onClick={() => setAcik(false)}
-            aria-hidden="true"
-          />
-          <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col overflow-y-auto overscroll-contain border-r border-border bg-card shadow-elegant">
-            <div className="flex h-16 shrink-0 items-center justify-between px-6">
-              <Logo />
-              <button
-                type="button"
-                onClick={() => setAcik(false)}
-                className="rounded-lg p-2 text-foreground/70 hover:bg-muted"
-                aria-label="Menüyü kapat"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <NavIcerik onNavigate={() => setAcik(false)} />
-          </aside>
-        </div>
-      )}
+      {drawer}
     </div>
   );
 }

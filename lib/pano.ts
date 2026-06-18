@@ -62,7 +62,7 @@ export async function panoyaKopyala(metin: string): Promise<boolean> {
   if (typeof window === "undefined" || !metin) return false;
 
   // 1) Modern Clipboard API — yalnızca güvenli bağlamda (HTTPS/localhost).
-  //    Reddederse senkron fallback'e düş.
+  //    Reddederse senkron fallback'e düş. Hatanın gerçek sebebini logla.
   if (
     typeof navigator !== "undefined" &&
     navigator.clipboard &&
@@ -72,13 +72,24 @@ export async function panoyaKopyala(metin: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(metin);
       return true;
-    } catch {
-      // Pano izni reddedildi / odak yok → klasik yönteme geç.
+    } catch (e) {
+      console.warn(
+        "[pano] navigator.clipboard.writeText başarısız, fallback'e geçiliyor:",
+        e,
+      );
     }
+  } else {
+    console.warn(
+      "[pano] Clipboard API kullanılamıyor (secureContext:",
+      typeof window !== "undefined" ? window.isSecureContext : "yok",
+      ") → execCommand fallback",
+    );
   }
 
   // 2) Klasik fallback (her yerde).
-  return execCommandKopya(metin);
+  const ok = execCommandKopya(metin);
+  if (!ok) console.warn("[pano] execCommand('copy') fallback de başarısız.");
+  return ok;
 }
 
 // Hafif, çerçeveden bağımsız toast — body'ye eklenir, kendiliğinden kaybolur.
