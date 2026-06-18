@@ -35,6 +35,7 @@ export default async function YayinDavetiyePage(
     <DavetiyeGoster
       data={{
         slug,
+        tema: d.tema ?? null,
         gelin: d.gelin_ad,
         damat: d.damat_ad,
         etkinlikler: Array.isArray(d.etkinlikler) ? d.etkinlikler : [],

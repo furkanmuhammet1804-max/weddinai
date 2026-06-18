@@ -31,7 +31,7 @@ function NavIcerik({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   return (
     <>
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-4">
         {menu.map((m) => {
           const Icon = m.icon;
           const aktif =
@@ -120,8 +120,13 @@ export function AdminMobilMenu() {
     if (!acik) return;
     const eski = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAcik(false);
+    };
+    window.addEventListener("keydown", esc);
     return () => {
       document.body.style.overflow = eski;
+      window.removeEventListener("keydown", esc);
     };
   }, [acik]);
 
@@ -137,13 +142,13 @@ export function AdminMobilMenu() {
       </button>
 
       {acik && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true">
           <div
-            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-foreground/70 backdrop-blur-sm"
             onClick={() => setAcik(false)}
             aria-hidden="true"
           />
-          <aside className="absolute left-0 top-0 flex h-full w-64 max-w-[80%] flex-col border-r border-border bg-card shadow-elegant">
+          <aside className="absolute left-0 top-0 flex h-full w-72 max-w-[85%] flex-col border-r border-border bg-card shadow-elegant">
             <div className="flex h-16 items-center justify-between px-6">
               <Logo />
               <button

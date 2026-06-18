@@ -65,7 +65,7 @@ export function SiteNav() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="glass overflow-hidden border-b border-border/60 md:hidden"
+            className="overflow-hidden border-b border-border/60 bg-background shadow-elegant md:hidden"
           >
             <div className="flex flex-col gap-1 px-5 py-4">
               {baglantilar.map((b) => (

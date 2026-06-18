@@ -12,6 +12,7 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import { temaBul, type DavetiyeTemaId } from "@/lib/davetiye-tema";
 
 interface Etk {
   tur: string;
@@ -23,6 +24,7 @@ interface Etk {
 }
 interface Data {
   slug: string;
+  tema: DavetiyeTemaId | string | null;
   gelin: string;
   damat: string;
   etkinlikler: Etk[];
@@ -35,6 +37,16 @@ interface Data {
   gelinAile: string | null;
   damatAile: string | null;
 }
+
+// CSS değişken kısayolları — tema renkleri root'tan türer (preview ile birebir).
+const c = {
+  yazi: "var(--dav-yazi)",
+  alt: "var(--dav-alt)",
+  vurgu: "var(--dav-vurgu)",
+  butonYazi: "var(--dav-buton-yazi)",
+  kartBg: "var(--dav-kart-bg)",
+  kartBd: "var(--dav-kart-bd)",
+} as const;
 
 function parseDate(e: Etk): Date | null {
   if (!e.tarih) return null;
@@ -65,6 +77,7 @@ function ytId(url: string): string | null {
 }
 
 export function DavetiyeGoster({ data }: { data: Data }) {
+  const tema = temaBul(data.tema);
   const kapak = data.gelinFoto ?? data.galeri[0] ?? data.damatFoto;
   const saveRef = useRef<HTMLElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -72,6 +85,23 @@ export function DavetiyeGoster({ data }: { data: Data }) {
   const [ytAcik, setYtAcik] = useState(false);
   const yt = data.muzikYoutube ? ytId(data.muzikYoutube) : null;
   const hedef = useMemo(() => hedefTarih(data.etkinlikler), [data.etkinlikler]);
+
+  // Tema renklerini CSS değişkenlerine bağla — tüm alt bölümler bundan türer.
+  const kokStil = {
+    background: tema.bg,
+    color: tema.yazi,
+    "--dav-yazi": tema.yazi,
+    "--dav-alt": tema.alt,
+    "--dav-vurgu": tema.vurgu,
+    "--dav-buton-yazi": tema.butonYazi,
+    "--dav-kart-bg": `color-mix(in srgb, ${tema.yazi} 6%, transparent)`,
+    "--dav-kart-bd": `color-mix(in srgb, ${tema.yazi} 16%, transparent)`,
+  } as React.CSSProperties;
+
+  // Kapak fotoğrafı varsa açılış ekranı fotoğrafın üstünde (beyaz metin);
+  // yoksa tema zemini üzerinde tema renkleriyle.
+  const heroYazi = kapak ? "#ffffff" : tema.yazi;
+  const heroAlt = kapak ? "rgba(255,255,255,0.72)" : tema.alt;
 
   function muzikToggle() {
     if (data.muzikUrl && audioRef.current) {
@@ -87,7 +117,11 @@ export function DavetiyeGoster({ data }: { data: Data }) {
   }
 
   return (
-    <div className="h-[100svh] snap-y snap-mandatory overflow-y-scroll bg-[#1a0e16] text-white">
+    <div
+      className="h-[100svh] snap-y snap-mandatory overflow-y-scroll"
+      style={kokStil}
+      data-tema={tema.id}
+    >
       {/* gizli müzik */}
       {data.muzikUrl && <audio ref={audioRef} src={data.muzikUrl} loop preload="none" />}
       {yt && ytAcik && (
@@ -103,8 +137,12 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       {(data.muzikUrl || yt) && (
         <button
           onClick={muzikToggle}
-          className="fixed right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur transition hover:bg-black/60"
-          style={{ marginTop: "env(safe-area-inset-top)" }}
+          className="fixed right-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition"
+          style={{
+            marginTop: "env(safe-area-inset-top)",
+            background: "rgba(0,0,0,0.38)",
+            color: "#fff",
+          }}
           aria-label="Müzik"
         >
           {caliyor ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
@@ -117,47 +155,57 @@ export function DavetiyeGoster({ data }: { data: Data }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={kapak} alt="" className="absolute inset-0 h-full w-full object-cover" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
+        {kapak && (
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/80" />
+        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1 }}
           className="relative z-10 px-6 text-center"
         >
-          <p className="font-display text-sm tracking-[0.3em] text-white/70">DAVETLİSİNİZ</p>
-          <h1 className="font-display mt-5 flex flex-col items-center leading-[1.06]">
+          <p className="font-display text-sm tracking-[0.3em]" style={{ color: heroAlt }}>DAVETLİSİNİZ</p>
+          <h1 className="font-display mt-5 flex flex-col items-center leading-[1.06]" style={{ color: heroYazi }}>
             <span className="break-words text-4xl sm:text-6xl">{data.gelin}</span>
-            <span className="my-2 text-3xl italic text-rose-300 sm:my-3 sm:text-4xl">&amp;</span>
+            <span className="my-2 text-3xl italic sm:my-3 sm:text-4xl" style={{ color: tema.vurgu }}>&amp;</span>
             <span className="break-words text-4xl sm:text-6xl">{data.damat}</span>
           </h1>
           <div className="mt-10 flex flex-col items-center gap-3">
-            <button onClick={ac} className="rounded-full bg-white/95 px-7 py-3 text-sm font-semibold text-[#1a0e16] shadow-lg transition hover:bg-white">
+            <button
+              onClick={ac}
+              className="rounded-full px-7 py-3 text-sm font-semibold shadow-lg transition hover:brightness-105"
+              style={{ background: tema.vurgu, color: tema.butonYazi }}
+            >
               Davetiyeyi Aç
             </button>
             {(data.muzikUrl || yt) && (
-              <button onClick={muzikToggle} className="inline-flex items-center gap-2 rounded-full border border-white/40 px-5 py-2.5 text-sm text-white/90 backdrop-blur transition hover:bg-white/10">
+              <button
+                onClick={muzikToggle}
+                className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm backdrop-blur transition"
+                style={{ borderColor: c.kartBd, color: heroYazi }}
+              >
                 {caliyor ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />} Müziği {caliyor ? "Durdur" : "Başlat"}
               </button>
             )}
           </div>
-          <ChevronDown className="mx-auto mt-10 h-6 w-6 animate-bounce text-white/60" />
+          <ChevronDown className="mx-auto mt-10 h-6 w-6 animate-bounce" style={{ color: heroAlt }} />
         </motion.div>
       </section>
 
       {/* 2) SAVE THE DATE */}
       <Bolum ref={saveRef}>
         <Ic>
-          <p className="font-display text-sm tracking-[0.3em] text-rose-200/80">SAVE THE DATE</p>
+          <p className="font-display text-sm tracking-[0.3em]" style={{ color: c.alt }}>SAVE THE DATE</p>
           {hedef && (
             <p className="font-display mt-6 text-5xl sm:text-7xl">
               {hedef.toLocaleDateString("tr-TR", { day: "2-digit" })}
-              <span className="mx-2 text-rose-300">.</span>
+              <span className="mx-2" style={{ color: c.vurgu }}>.</span>
               {hedef.toLocaleDateString("tr-TR", { month: "2-digit" })}
-              <span className="mx-2 text-rose-300">.</span>
+              <span className="mx-2" style={{ color: c.vurgu }}>.</span>
               {hedef.getFullYear()}
             </p>
           )}
-          <p className="font-display mt-6 text-2xl text-white/90">{data.gelin} & {data.damat}</p>
+          <p className="font-display mt-6 text-2xl">{data.gelin} & {data.damat}</p>
         </Ic>
       </Bolum>
 
@@ -165,7 +213,7 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       {hedef && (
         <Bolum>
           <Ic>
-            <p className="font-display text-sm tracking-[0.3em] text-rose-200/80">BÜYÜK GÜNE</p>
+            <p className="font-display text-sm tracking-[0.3em]" style={{ color: c.alt }}>BÜYÜK GÜNE</p>
             <GeriSayim hedef={hedef} />
           </Ic>
         </Bolum>
@@ -175,7 +223,7 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       {data.etkinlikler.length > 0 && (
         <Bolum>
           <Ic wide>
-            <p className="font-display text-sm tracking-[0.3em] text-rose-200/80">PROGRAM</p>
+            <p className="font-display text-sm tracking-[0.3em]" style={{ color: c.alt }}>PROGRAM</p>
             <div className="mt-8 w-full space-y-4">
               {data.etkinlikler.map((e, i) => (
                 <motion.div
@@ -184,18 +232,25 @@ export function DavetiyeGoster({ data }: { data: Data }) {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: i * 0.05 }}
-                  className="rounded-2xl border border-white/15 bg-white/5 p-5 text-left backdrop-blur"
+                  className="rounded-2xl border p-5 text-left backdrop-blur"
+                  style={{ borderColor: c.kartBd, background: c.kartBg }}
                 >
-                  <div className="flex items-center gap-2 text-rose-200">
+                  <div className="flex items-center gap-2" style={{ color: c.vurgu }}>
                     <CalendarHeart className="h-4 w-4" />
-                    <h3 className="font-display text-xl text-white">{e.tur}</h3>
+                    <h3 className="font-display text-xl" style={{ color: c.yazi }}>{e.tur}</h3>
                   </div>
                   {(e.tarih || e.saat) && (
-                    <p className="mt-2 text-sm text-white/80">{tarihTR(e)}{e.saat ? ` · ${e.saat}` : ""}</p>
+                    <p className="mt-2 text-sm" style={{ color: c.alt }}>{tarihTR(e)}{e.saat ? ` · ${e.saat}` : ""}</p>
                   )}
-                  {e.mekan && <p className="mt-1 text-sm text-white/90">{e.mekan}</p>}
-                  {e.adres && <p className="text-sm text-white/60">{e.adres}</p>}
-                  <a href={mapsLink(e)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-[#1a0e16] transition hover:bg-white">
+                  {e.mekan && <p className="mt-1 text-sm" style={{ color: c.yazi }}>{e.mekan}</p>}
+                  {e.adres && <p className="text-sm" style={{ color: c.alt }}>{e.adres}</p>}
+                  <a
+                    href={mapsLink(e)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition hover:brightness-105"
+                    style={{ background: c.vurgu, color: c.butonYazi }}
+                  >
                     <MapPin className="h-4 w-4" /> Haritayı Aç
                   </a>
                 </motion.div>
@@ -209,7 +264,7 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       {data.galeri.length > 0 && (
         <Bolum>
           <Ic wide>
-            <p className="font-display text-sm tracking-[0.3em] text-rose-200/80">ANILAR</p>
+            <p className="font-display text-sm tracking-[0.3em]" style={{ color: c.alt }}>ANILAR</p>
             <div className="mt-6 flex w-full snap-x snap-mandatory gap-3 overflow-x-auto pb-3" style={{ scrollbarWidth: "none" }}>
               {data.galeri.map((u, i) => (
                 <div key={i} className="relative aspect-[3/4] w-[78%] shrink-0 snap-center overflow-hidden rounded-2xl sm:w-[45%]">
@@ -218,7 +273,7 @@ export function DavetiyeGoster({ data }: { data: Data }) {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-xs text-white/50">← kaydırın →</p>
+            <p className="mt-2 text-xs" style={{ color: c.alt, opacity: 0.7 }}>← kaydırın →</p>
           </Ic>
         </Bolum>
       )}
@@ -226,7 +281,7 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       {/* 7) RSVP */}
       <Bolum>
         <Ic>
-          <p className="font-display text-sm tracking-[0.3em] text-rose-200/80">KATILIM</p>
+          <p className="font-display text-sm tracking-[0.3em]" style={{ color: c.alt }}>KATILIM</p>
           <h2 className="font-display mt-4 text-3xl">Aramızda mısınız?</h2>
           <Rsvp slug={data.slug} />
         </Ic>
@@ -235,17 +290,17 @@ export function DavetiyeGoster({ data }: { data: Data }) {
       {/* 8) TEŞEKKÜR */}
       <Bolum>
         <Ic>
-          <Heart className="mx-auto h-10 w-10 fill-rose-300 text-rose-300" />
-          <p className="font-display mt-6 text-2xl leading-relaxed text-white/90">
+          <Heart className="mx-auto h-10 w-10" style={{ color: c.vurgu, fill: c.vurgu }} />
+          <p className="font-display mt-6 text-2xl leading-relaxed">
             {data.mesaj || "Bu özel günümüzde aramızda olmanız bizi mutlu eder."}
           </p>
           {(data.gelinAile || data.damatAile) && (
-            <p className="mt-6 text-sm text-white/60">
+            <p className="mt-6 text-sm" style={{ color: c.alt }}>
               {[data.gelinAile, data.damatAile].filter(Boolean).join("  •  ")}
             </p>
           )}
-          <p className="font-display mt-8 text-xl text-rose-200">{data.gelin} & {data.damat}</p>
-          <p className="mt-10 text-[11px] tracking-widest text-white/30">WeddinAI ile hazırlandı</p>
+          <p className="font-display mt-8 text-xl" style={{ color: c.vurgu }}>{data.gelin} & {data.damat}</p>
+          <p className="mt-10 text-[11px] tracking-widest" style={{ color: c.alt, opacity: 0.7 }}>WeddinAI ile hazırlandı</p>
         </Ic>
       </Bolum>
     </div>
@@ -287,12 +342,12 @@ function GeriSayim({ hedef }: { hedef: Date }) {
     return () => clearInterval(t);
   }, [hedef]);
   if (k.bitti) {
-    return <p className="font-display mt-8 text-3xl text-rose-200">Bugün! 🎉</p>;
+    return <p className="font-display mt-8 text-3xl" style={{ color: c.vurgu }}>Bugün! 🎉</p>;
   }
   const kutu = (v: number, l: string) => (
     <div className="flex flex-col items-center">
       <span className="font-display text-4xl sm:text-5xl tabular-nums">{String(v).padStart(2, "0")}</span>
-      <span className="mt-1 text-[11px] tracking-widest text-white/60">{l}</span>
+      <span className="mt-1 text-[11px] tracking-widest" style={{ color: c.alt }}>{l}</span>
     </div>
   );
   return (
@@ -346,31 +401,48 @@ function Rsvp({ slug }: { slug: string }) {
   if (durum === "tamam") {
     return (
       <div className="mt-8 flex flex-col items-center gap-3">
-        <CheckCircle2 className="h-10 w-10 text-emerald-300" />
-        <p className="text-white/90">Teşekkürler! Yanıtınız alındı. 💛</p>
+        <CheckCircle2 className="h-10 w-10" style={{ color: c.vurgu }} />
+        <p>Teşekkürler! Yanıtınız alındı. 💛</p>
       </div>
     );
   }
 
-  const inp = "w-full rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-white/50";
+  const inpStil: React.CSSProperties = {
+    borderColor: c.kartBd,
+    background: c.kartBg,
+    color: c.yazi,
+  };
+  const inp = "w-full rounded-xl border px-4 py-3 text-sm outline-none";
   return (
     <div className="mt-8 space-y-3 text-left">
-      <input value={ad} onChange={(e) => setAd(e.target.value)} placeholder="Adınız Soyadınız" className={inp} />
-      <div className="flex items-center justify-between rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm text-white">
-        <span className="text-white/70">Kişi sayısı</span>
+      <input value={ad} onChange={(e) => setAd(e.target.value)} placeholder="Adınız Soyadınız" className={inp} style={inpStil} />
+      <div className="flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm" style={inpStil}>
+        <span style={{ color: c.alt }}>Kişi sayısı</span>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setKisi((k) => Math.max(1, k - 1))} className="h-7 w-7 rounded-full bg-white/15">−</button>
+          <button type="button" onClick={() => setKisi((k) => Math.max(1, k - 1))} className="h-7 w-7 rounded-full" style={{ background: c.kartBd }}>−</button>
           <span className="w-5 text-center tabular-nums">{kisi}</span>
-          <button type="button" onClick={() => setKisi((k) => Math.min(20, k + 1))} className="h-7 w-7 rounded-full bg-white/15">+</button>
+          <button type="button" onClick={() => setKisi((k) => Math.min(20, k + 1))} className="h-7 w-7 rounded-full" style={{ background: c.kartBd }}>+</button>
         </div>
       </div>
-      <input value={not} onChange={(e) => setNot(e.target.value)} placeholder="Notunuz (opsiyonel)" className={inp} />
-      {hata && <p className="text-sm font-medium text-rose-300">{hata}</p>}
+      <input value={not} onChange={(e) => setNot(e.target.value)} placeholder="Notunuz (opsiyonel)" className={inp} style={inpStil} />
+      {hata && <p className="text-sm font-medium" style={{ color: c.vurgu }}>{hata}</p>}
       <div className="grid grid-cols-2 gap-3 pt-1">
-        <button type="button" disabled={durum === "gonderiliyor"} onClick={() => gonder("evet")} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-emerald-400 py-3 text-sm font-semibold text-emerald-950 transition hover:brightness-110 disabled:opacity-60">
+        <button
+          type="button"
+          disabled={durum === "gonderiliyor"}
+          onClick={() => gonder("evet")}
+          className="inline-flex items-center justify-center gap-1.5 rounded-full py-3 text-sm font-semibold transition hover:brightness-110 disabled:opacity-60"
+          style={{ background: c.vurgu, color: c.butonYazi }}
+        >
           {durum === "gonderiliyor" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />} Katılacağım
         </button>
-        <button type="button" disabled={durum === "gonderiliyor"} onClick={() => gonder("hayir")} className="rounded-full border border-white/30 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10 disabled:opacity-60">
+        <button
+          type="button"
+          disabled={durum === "gonderiliyor"}
+          onClick={() => gonder("hayir")}
+          className="rounded-full border py-3 text-sm font-semibold transition disabled:opacity-60"
+          style={{ borderColor: c.kartBd, color: c.yazi }}
+        >
           Katılamayacağım
         </button>
       </div>
