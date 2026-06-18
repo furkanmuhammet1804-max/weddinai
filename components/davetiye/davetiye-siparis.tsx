@@ -162,8 +162,8 @@ export function DavetiyeSiparis() {
   }
 
   // ---- Canlı önizleme değerleri ----
-  const onGelin = ilkAd(form.gelin_ad) || "Elif";
-  const onDamat = ilkAd(form.damat_ad) || "Mert";
+  const onGelin = ilkAd(form.gelin_ad) || "Bengisu";
+  const onDamat = ilkAd(form.damat_ad) || "Furkan";
   const onTarih = trTarih(dugun.tarih) ?? trTarih(kina.tarih) ?? "Yakında";
   const aktifTema = temaBul(tema);
 
@@ -716,13 +716,13 @@ function TemaKart({ tema, secili, onSec }: { tema: DavetiyeTema; secili: boolean
           DAVETLİSİNİZ
         </span>
         <span className="font-display text-[15px] leading-tight" style={{ color: tema.yazi }}>
-          Elif
+          Bengisu
         </span>
         <span className="font-display text-base italic leading-none" style={{ color: tema.vurgu }}>
           &amp;
         </span>
         <span className="font-display text-[15px] leading-tight" style={{ color: tema.yazi }}>
-          Burak
+          Furkan
         </span>
         <span className="my-1 h-px w-8" style={{ background: tema.vurgu, opacity: 0.55 }} />
         <span

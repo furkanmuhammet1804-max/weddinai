@@ -56,10 +56,10 @@ export interface AniDefteriKayit {
 
 export const ornekEtkinlik: Etkinlik = {
   id: "evt_001",
-  title: "Elif & Mert Düğünü",
+  title: "Bengisu & Furkan Düğünü",
   event_type: "dugun",
   event_date: "2026-08-15",
-  slug: "elif-mert",
+  slug: "bengisu-furkan",
   status: "aktif",
   cover: "from-rose-soft via-primary-soft to-background",
   moderation: "direkt_yayinla",

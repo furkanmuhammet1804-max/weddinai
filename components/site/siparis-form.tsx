@@ -145,7 +145,7 @@ export function SiparisForm({ paket }: { paket: string }) {
                     label="Ad Soyad / Çift Adı"
                     value={form.customer_name}
                     onChange={(v) => g("customer_name", v)}
-                    placeholder="Örn. Furkan & Bengisu"
+                    placeholder="Örn. Bengisu & Furkan"
                   />
                   <div className="grid grid-cols-2 gap-4">
                     <div>

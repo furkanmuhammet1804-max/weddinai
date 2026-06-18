@@ -103,7 +103,7 @@ export function Hero() {
           >
             <div className="flex h-full flex-col overflow-hidden rounded-[1.6rem] bg-gradient-to-b from-rose-soft via-primary-soft to-background">
               <div className="px-4 pt-6 text-center">
-                <p className="font-display text-lg font-semibold">Elif & Mert</p>
+                <p className="font-display text-lg font-semibold">Bengisu & Furkan</p>
                 <p className="text-xs text-muted-foreground">15 Ağustos 2026</p>
               </div>
               <div className="mt-4 grid flex-1 grid-cols-2 gap-2 px-4">

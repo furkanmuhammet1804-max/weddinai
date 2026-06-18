@@ -40,7 +40,7 @@ export function AdminOdaOlustur() {
     if (yukleniyor) return;
     setHata(null);
     if (form.baslik.trim().length < 2) {
-      setHata("Lütfen oda başlığını girin (örn. Furkan & Bengisu).");
+      setHata("Lütfen oda başlığını girin (örn. Bengisu & Furkan).");
       return;
     }
     if (form.kullaniciAdi.trim().length < 3) {
@@ -99,7 +99,7 @@ export function AdminOdaOlustur() {
         <form onSubmit={gonder} className="mt-6 space-y-4">
           <Alan
             label="Oda Başlığı"
-            ipucu="Örn. Furkan & Bengisu"
+            ipucu="Örn. Bengisu & Furkan"
             value={form.baslik}
             onChange={(v) => guncelle("baslik", v)}
             autoFocus
