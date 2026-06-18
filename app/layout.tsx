@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { TEMA_FLASH_SCRIPT } from "@/lib/temalar";
-import { WhatsAppButon } from "@/components/site/whatsapp-buton";
+import { IletisimDock } from "@/components/site/whatsapp-buton";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -89,7 +89,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
-        <WhatsAppButon />
+        <IletisimDock />
       </body>
     </html>
   );

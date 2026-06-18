@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Logo } from "./logo";
-import { Camera, Mail, Heart } from "lucide-react";
+import { Mail, Heart, Phone } from "lucide-react";
+import {
+  instagramLinki,
+  siparisLinki,
+  TELEFON_GORUNEN,
+} from "@/lib/iletisim";
+import { WhatsAppGlif, InstagramGlif } from "@/components/site/marka-ikonlar";
 
 const gruplar: {
   baslik: string;
@@ -46,13 +52,22 @@ export function SiteFooter() {
             </p>
             <div className="mt-5 flex gap-3">
               <a
-                href="https://instagram.com/weddinai"
+                href={instagramLinki()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-full border border-border p-2.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                aria-label="Instagram"
+                aria-label="Instagram @weddinai"
               >
-                <Camera className="h-4 w-4" />
+                <InstagramGlif className="h-4 w-4" />
+              </a>
+              <a
+                href={siparisLinki()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-border p-2.5 text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                aria-label="WhatsApp"
+              >
+                <WhatsAppGlif className="h-4 w-4" />
               </a>
               <a
                 href="mailto:merhaba@weddinai.com"
@@ -62,6 +77,14 @@ export function SiteFooter() {
                 <Mail className="h-4 w-4" />
               </a>
             </div>
+            <a
+              href={siparisLinki()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Phone className="h-3.5 w-3.5" /> {TELEFON_GORUNEN}
+            </a>
           </div>
 
           {gruplar.map((g) => (
