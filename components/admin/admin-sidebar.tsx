@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Inbox,
   BarChart3,
+  Heart,
   Menu,
   X,
   LogOut,
@@ -22,6 +23,7 @@ const menu = [
   { href: "/admin/oda/yeni", label: "Yeni Oda", icon: Plus },
   { href: "/admin/onaylar", label: "Showroom Onayları", icon: CheckCircle2 },
   { href: "/admin/talepler", label: "Talepler", icon: Inbox },
+  { href: "/admin/davetiye", label: "Davetiye Talepleri", icon: Heart },
   { href: "/admin/istatistik", label: "İstatistik", icon: BarChart3 },
 ];
 

@@ -178,6 +178,25 @@ export async function davetiyeDurumGuncelle(
   return { ok: !error };
 }
 
+// Admin manuel slug belirler (yayın URL'i). Benzersizlik kontrol edilir.
+export async function davetiyeSlugBelirle(
+  id: string,
+  ham: string,
+): Promise<{ ok: boolean; slug?: string; hata?: string }> {
+  const slug = slugYap(ham);
+  if (!slug) return { ok: false, hata: "Geçersiz bağlantı adı." };
+  const admin = createAdminClient();
+  const { data: varMi } = await admin
+    .from("davetiyeler")
+    .select("id")
+    .ilike("slug", slug)
+    .neq("id", id)
+    .maybeSingle();
+  if (varMi) return { ok: false, hata: "Bu bağlantı adı kullanımda." };
+  const { error } = await admin.from("davetiyeler").update({ slug }).eq("id", id);
+  return error ? { ok: false, hata: "Kaydedilemedi." } : { ok: true, slug };
+}
+
 export async function rsvpEkle(
   davetiyeId: string,
   ad: string,
