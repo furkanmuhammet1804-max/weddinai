@@ -6,26 +6,45 @@
    ============================================================= */
 
 :root {
-  /* Zemin & metin */
-  --background: #faf7f2; /* ivory */
-  --foreground: #2b2521; /* sıcak antrasit */
+  /* Zemin & metin — varsayılan: Pudra Gül (pembe) */
+  --background: #fdf7f6;
+  --foreground: #2b1f1e;
   --card: #ffffff;
-  --card-foreground: #2b2521;
-  --muted: #f1ebe1; /* yumuşak krem */
-  --muted-foreground: #8c8175; /* sönük kahve-gri */
-  --border: #ece3d6;
+  --card-foreground: #2b1f1e;
+  --muted: #f6e8e7;
+  --muted-foreground: #8c7370;
+  --border: #efdcda;
 
   /* Aksanlar */
-  --primary: #b8915a; /* şampanya altını */
+  --primary: #d2737a; /* pudra gül */
+  --primary-foreground: #ffffff;
+  --primary-soft: #f9e7e7;
+  --primary-deep: #a8525a; /* koyu gül — metin vurguları */
+  --accent: #e08e92; /* açık gül */
+  --rose: #f0c9cb;
+  --rose-soft: #fbeceb;
+
+  --ring: #e08e92;
+  --radius: 1rem;
+}
+
+/* Şampanya/altın artık seçilebilir tema (eski varsayılan) */
+[data-theme="altin"] {
+  --background: #faf7f2;
+  --foreground: #2b2521;
+  --card: #ffffff;
+  --card-foreground: #2b2521;
+  --muted: #f1ebe1;
+  --muted-foreground: #8c8175;
+  --border: #ece3d6;
+  --primary: #b8915a;
   --primary-foreground: #ffffff;
   --primary-soft: #f3e9d8;
-  --primary-deep: #9c7740; /* koyu altın — metin vurguları */
-  --accent: #c9a36a; /* açık altın */
-  --rose: #e3c7c0; /* pudra gül */
+  --primary-deep: #9c7740;
+  --accent: #c9a36a;
+  --rose: #e3c7c0;
   --rose-soft: #f7ecea;
-
   --ring: #c9a36a;
-  --radius: 1rem;
 }
 
 /* =============================================================

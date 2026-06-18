@@ -12,6 +12,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import JSZip from "jszip";
+import { blobIndir, ZIP_AYAR } from "@/lib/indir";
 
 interface Foto {
   id: string;
@@ -63,15 +64,8 @@ export function ShowroomGaleri({ fotograflar }: { fotograflar: Foto[] }) {
 
   async function tekBlobIndir(f: Foto, i: number) {
     const res = await fetch(f.url);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = dosyaAdi(f, i);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    if (!res.ok) throw new Error("indirilemedi");
+    blobIndir(await res.blob(), dosyaAdi(f, i));
   }
 
   async function tekIndir(f: Foto, i: number) {
@@ -97,21 +91,14 @@ export function ShowroomGaleri({ fotograflar }: { fotograflar: Foto[] }) {
       for (let i = 0; i < indirilecek.length; i++) {
         try {
           const res = await fetch(indirilecek[i].url);
-          zip.file(dosyaAdi(indirilecek[i], i), await res.blob());
+          if (res.ok) zip.file(dosyaAdi(indirilecek[i], i), await res.blob());
         } catch {
           /* atla */
         }
         setIndirme({ yapilan: i + 1, toplam: indirilecek.length });
       }
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "showroom-fotograflar.zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const blob = await zip.generateAsync(ZIP_AYAR);
+      blobIndir(blob, "showroom-fotograflar.zip");
     } catch {
       /* sessiz */
     }

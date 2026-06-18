@@ -25,10 +25,10 @@ export default function NotFound() {
           <Home className="h-4 w-4" /> Ana Sayfa
         </Link>
         <Link
-          href="/panel"
+          href="/showroom"
           className="inline-flex items-center justify-center gap-2 rounded-full border border-primary/40 px-6 py-3 text-sm font-medium hover:bg-primary-soft/50"
         >
-          <ArrowLeft className="h-4 w-4" /> Yönetim Paneli
+          <ArrowLeft className="h-4 w-4" /> Showroom
         </Link>
       </div>
     </div>

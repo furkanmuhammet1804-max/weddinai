@@ -1,8 +1,8 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { Check, Sparkles, Star, Crown, Camera, ArrowRight } from "lucide-react";
+import { Check, Sparkles, Star, Crown, Camera, ArrowRight, MessageCircle } from "lucide-react";
 import { SiteNav } from "@/components/site/site-nav";
 import { SiteFooter } from "@/components/site/site-footer";
+import { siparisLinki, bayiLinki, WHATSAPP_VAR } from "@/lib/iletisim";
 
 export const metadata: Metadata = {
   title: "Fiyatlar — WeddinAI",
@@ -137,16 +137,26 @@ export default function FiyatlarPage() {
                     ))}
                   </ul>
 
-                  <Link
-                    href={`/siparis?paket=${p.slug}`}
+                  <a
+                    href={siparisLinki(p.slug, p.ad)}
+                    target={WHATSAPP_VAR ? "_blank" : undefined}
+                    rel={WHATSAPP_VAR ? "noopener noreferrer" : undefined}
                     className={`mt-7 inline-flex items-center justify-center gap-2 rounded-full py-3 text-sm font-medium transition-all ${
                       p.vurgu
                         ? "bg-primary text-primary-foreground shadow-elegant hover:brightness-110"
                         : "border border-primary/40 text-primary-deep hover:bg-primary-soft/50"
                     }`}
                   >
-                    Hemen Başla <ArrowRight className="h-4 w-4" />
-                  </Link>
+                    {WHATSAPP_VAR ? (
+                      <>
+                        <MessageCircle className="h-4 w-4" /> WhatsApp&apos;tan Başla
+                      </>
+                    ) : (
+                      <>
+                        Hemen Başla <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </a>
                 </div>
               );
             })}
@@ -172,12 +182,14 @@ export default function FiyatlarPage() {
                   geçin.
                 </p>
               </div>
-              <Link
-                href="/kayit"
+              <a
+                href={bayiLinki()}
+                target={WHATSAPP_VAR ? "_blank" : undefined}
+                rel={WHATSAPP_VAR ? "noopener noreferrer" : undefined}
                 className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-elegant transition-all hover:brightness-110"
               >
-                Bayi Ol <ArrowRight className="h-4 w-4" />
-              </Link>
+                İletişime Geç <ArrowRight className="h-4 w-4" />
+              </a>
             </div>
           </div>
         </section>

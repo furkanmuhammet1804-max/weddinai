@@ -1,9 +1,9 @@
-// Müşteri bir fotoğrafı showroom'da yayınlar / geri çeker.
+// Müşteri bir fotoğrafı showroom'a GÖNDERİR / geri çeker (admin onayı bekler).
 // Yalnızca geçerli oda oturumu olan müşteri, KENDİ odasının medyasını
 // değiştirebilir (oturum çerezi slug'a bağlı imzalı).
 import { NextResponse } from "next/server";
 import { odaOturumOku } from "@/lib/oda/oturum";
-import { showroomOnayDegistir } from "@/lib/oda/veri";
+import { showroomTalepDegistir } from "@/lib/oda/veri";
 
 export async function POST(request: Request) {
   let body: { slug?: string; mediaId?: string; onay?: boolean };
@@ -24,12 +24,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ hata: "Oturum geçersiz." }, { status: 401 });
   }
 
-  const ok = await showroomOnayDegistir(eventId, mediaId, !!body.onay);
+  const ok = await showroomTalepDegistir(eventId, mediaId, !!body.onay);
   if (!ok) {
-    return NextResponse.json(
-      { hata: "Güncelleme başarısız." },
-      { status: 500 },
-    );
+    return NextResponse.json({ hata: "Güncelleme başarısız." }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

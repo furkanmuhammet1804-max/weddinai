@@ -100,6 +100,30 @@ function uzanti(f: File): string {
   return f.type.startsWith("video/") ? "mp4" : "jpg";
 }
 
+// Ses kaydı için tarayıcının desteklediği EN UYUMLU formatı seçer.
+// iOS Safari yalnızca mp4/aac kaydedip çalabilir (webm desteklemez); bu yüzden
+// önce mp4/aac denenir → kayıt mümkün olduğunca her cihazda açılabilir olur.
+// Sabit ".webm" yerine gerçek uzantı kullanılır ki depolama doğru içerik
+// tipiyle sunsun ve müşteri panelinde ses çalınabilsin.
+function sesKaydiTipi(): { mimeType?: string; uzanti: string } {
+  if (typeof MediaRecorder === "undefined") return { uzanti: "webm" };
+  const adaylar: { m: string; e: string }[] = [
+    { m: "audio/mp4", e: "m4a" },
+    { m: "audio/aac", e: "aac" },
+    { m: "audio/webm;codecs=opus", e: "webm" },
+    { m: "audio/webm", e: "webm" },
+    { m: "audio/ogg;codecs=opus", e: "ogg" },
+  ];
+  for (const a of adaylar) {
+    try {
+      if (MediaRecorder.isTypeSupported(a.m)) return { mimeType: a.m, uzanti: a.e };
+    } catch {
+      /* yoksay */
+    }
+  }
+  return { uzanti: "webm" };
+}
+
 export function GuestApp({
   eventId,
   slug,
@@ -599,6 +623,9 @@ function AniBirak({
   const [sesBlob, setSesBlob] = useState<Blob | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const parcalarRef = useRef<Blob[]>([]);
+  const sesTipiRef = useRef<{ mimeType?: string; uzanti: string }>({
+    uzanti: "webm",
+  });
 
   useEffect(() => {
     return () => {
@@ -614,14 +641,18 @@ function AniBirak({
     setHata(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream);
+      const tip = sesKaydiTipi();
+      sesTipiRef.current = tip;
+      const rec = tip.mimeType
+        ? new MediaRecorder(stream, { mimeType: tip.mimeType })
+        : new MediaRecorder(stream);
       parcalarRef.current = [];
       rec.ondataavailable = (e) => {
         if (e.data.size > 0) parcalarRef.current.push(e.data);
       };
       rec.onstop = () => {
         const blob = new Blob(parcalarRef.current, {
-          type: rec.mimeType || "audio/webm",
+          type: rec.mimeType || tip.mimeType || "audio/webm",
         });
         setSesBlob(blob);
         stream.getTracks().forEach((t) => t.stop());
@@ -656,7 +687,8 @@ function AniBirak({
       let sesPath: string | null = null;
 
       if (sesBlob) {
-        sesPath = `${eventId}/${crypto.randomUUID()}.webm`;
+        const uz = sesTipiRef.current.uzanti || "webm";
+        sesPath = `${eventId}/${crypto.randomUUID()}.${uz}`;
         const { error: upErr } = await supabase.storage
           .from(SES_BUCKET)
           .upload(sesPath, sesBlob, {

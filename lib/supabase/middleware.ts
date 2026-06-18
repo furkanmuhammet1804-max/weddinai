@@ -1,59 +1,37 @@
-// Oturum yenileme yardımcısı — middleware.ts içinden çağrılır
-import { createServerClient } from "@supabase/ssr";
+// =============================================================
+// PROXY (eski adıyla middleware) yardımcı — admin alanını korur.
+//
+// Yönetici artık Supabase Auth kullanmıyor; tek admin imzalı bir çerezle
+// (admin_oturum) tanınır. Burada Edge'de yalnızca çerezin VARLIĞINI kontrol
+// ederiz (hızlı geçiş kapısı). Çerezin imzası ayrıca Node tarafında
+// (admin layout + admin API rotaları) tam olarak DOĞRULANIR; bu yüzden
+// sahte/kurcalanmış çerez sayfa render'ında ve veri işlemlerinde reddedilir.
+// =============================================================
 import { NextResponse, type NextRequest } from "next/server";
 
+const ADMIN_COOKIE = "admin_oturum";
+
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const { pathname, search } = request.nextUrl;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
+  // /admin korumalı — yalnızca giriş sayfası ve giriş API'si serbest.
+  const adminAlani =
+    pathname === "/admin" || pathname.startsWith("/admin/");
+  const serbest =
+    pathname === "/admin/giris" || pathname.startsWith("/api/admin/giris");
 
-  // getUser() oturumu tazeler — çağrılması önemli.
-  // Ağ/Supabase hatası isteği çökertmesin; hatada kullanıcı yok kabul edilir.
-  let user = null;
-  try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  } catch {
-    user = null;
+  if (adminAlani && !serbest) {
+    const cerezVar = !!request.cookies.get(ADMIN_COOKIE)?.value;
+    if (!cerezVar) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/giris";
+      url.search = "";
+      if (pathname !== "/admin") {
+        url.searchParams.set("next", pathname + search);
+      }
+      return NextResponse.redirect(url);
+    }
   }
 
-  const { pathname } = request.nextUrl;
-
-  // Korumalı alan: /panel girişsiz erişilemez.
-  // Giriş sonrası geri dönülebilsin diye hedefi ?next= ile taşı.
-  if (!user && pathname.startsWith("/panel")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/giris";
-    url.searchParams.set("next", pathname + request.nextUrl.search);
-    return NextResponse.redirect(url);
-  }
-
-  // Girişli kullanıcı /giris veya /kayit'e gelirse panele yönlendir.
-  if (user && (pathname === "/giris" || pathname === "/kayit")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/panel";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  return NextResponse.next({ request });
 }

@@ -15,15 +15,19 @@ import {
   CheckCircle2,
   Download,
   CheckSquare,
-  Square,
   X,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
   Trash2,
+  Heart,
+  QrCode,
+  Share2,
+  Clock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import JSZip from "jszip";
+import QRCode from "qrcode";
+import { blobIndir, formIleIndir } from "@/lib/indir";
 import type { OdaBilgi, OdaMedya, OdaAni } from "@/lib/oda/veri";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
@@ -73,13 +77,40 @@ export function MusteriPanel({
   // Seçim & indirme & lightbox
   const [secimModu, setSecimModu] = useState(false);
   const [secili, setSecili] = useState<Set<string>>(new Set());
-  const [lightbox, setLightbox] = useState<number | null>(null);
+  // Lightbox, konum yerine medya ID ile takip edilir → favori filtresi açılıp
+  // kapanınca ya da liste değişince yanlış görsele atlamaz.
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [indirme, setIndirme] = useState<{
-    yapilan: number;
-    toplam: number;
+    mesaj: string;
+    alt?: string;
   } | null>(null);
   const [gosterilen, setGosterilen] = useState(GOSTER_ADIM);
+  const [favoriFiltre, setFavoriFiltre] = useState(false);
+  const [qrAcik, setQrAcik] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Görüntülenen kaynak: favori filtresi açıksa yalnızca favoriler.
+  const kaynak = favoriFiltre ? liste.filter((m) => m.is_favorite) : liste;
+
+  // Bir içeriği favoriye ekler/çıkarır (iyimser).
+  async function favoriToggle(m: OdaMedya) {
+    const yeni = !m.is_favorite;
+    setListe((o) =>
+      o.map((x) => (x.id === m.id ? { ...x, is_favorite: yeni } : x)),
+    );
+    try {
+      const res = await fetch("/api/oda/favori", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, mediaId: m.id, favori: yeni }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setListe((o) =>
+        o.map((x) => (x.id === m.id ? { ...x, is_favorite: !yeni } : x)),
+      );
+    }
+  }
 
   // Props değişince (router.refresh sonrası) listeyi tazele
   useEffect(() => {
@@ -94,14 +125,19 @@ export function MusteriPanel({
     const obs = new IntersectionObserver(
       (girisler) => {
         if (girisler[0]?.isIntersecting) {
-          setGosterilen((g) => Math.min(g + GOSTER_ADIM, liste.length));
+          setGosterilen((g) => Math.min(g + GOSTER_ADIM, kaynak.length));
         }
       },
       { rootMargin: "600px" },
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [liste.length, sekme]);
+  }, [kaynak.length, sekme]);
+
+  // Favori filtresi değişince baştan göster.
+  useEffect(() => {
+    setGosterilen(GOSTER_ADIM);
+  }, [favoriFiltre]);
 
   // Seçilen içerikleri toplu siler.
   async function topluSil(medias: OdaMedya[]) {
@@ -152,6 +188,10 @@ export function MusteriPanel({
   const fotoSayi = liste.filter((m) => m.file_type === "fotograf").length;
   const videoSayi = liste.filter((m) => m.file_type === "video").length;
   const showroomSayi = liste.filter((m) => m.showroom_approved).length;
+  const bekleyenSayi = liste.filter(
+    (m) => m.showroom_requested && !m.showroom_approved,
+  ).length;
+  const favoriSayi = liste.filter((m) => m.is_favorite).length;
 
   async function cikisYap() {
     if (cikis) return;
@@ -176,67 +216,47 @@ export function MusteriPanel({
   const tekBlobIndir = useCallback(async (m: OdaMedya, i: number) => {
     if (!m.url) return;
     const res = await fetch(m.url);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = dosyaAdi(m, i);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    if (!res.ok) throw new Error("indirilemedi");
+    blobIndir(await res.blob(), dosyaAdi(m, i));
   }, []);
 
   const tekIndir = useCallback(
     async (m: OdaMedya, i: number) => {
-      setIndirme({ yapilan: 0, toplam: 1 });
+      setIndirme({ mesaj: "İndiriliyor…" });
       try {
         await tekBlobIndir(m, i);
       } catch {
-        /* sessiz */
+        setIndirme({ mesaj: "İndirilemedi", alt: "Lütfen tekrar deneyin." });
+        setTimeout(() => setIndirme(null), 2500);
+        return;
       }
       setIndirme(null);
     },
     [tekBlobIndir],
   );
 
+  // Toplu indirme: ZIP'i SUNUCU üretir, tarayıcı tek dosya indirir
+  // (mobil/iOS Safari'de güvenilir; istemci belleği kullanılmaz).
   const topluIndir = useCallback(
-    async (medias: OdaMedya[]) => {
+    (medias: OdaMedya[]) => {
       const indirilecek = medias.filter((m) => m.url);
       if (indirilecek.length === 0) return;
-      // Tek dosyaysa düz indir (zip'e gerek yok).
+      // Tek dosyaysa düz (ham) indir — zip'e gerek yok.
       if (indirilecek.length === 1) {
-        await tekIndir(indirilecek[0], 0);
+        void tekIndir(indirilecek[0], 0);
         return;
       }
-      setIndirme({ yapilan: 0, toplam: indirilecek.length });
-      try {
-        const zip = new JSZip();
-        for (let i = 0; i < indirilecek.length; i++) {
-          const m = indirilecek[i];
-          try {
-            const res = await fetch(m.url!);
-            zip.file(dosyaAdi(m, i), await res.blob());
-          } catch {
-            /* o dosyayı atla */
-          }
-          setIndirme({ yapilan: i + 1, toplam: indirilecek.length });
-        }
-        const blob = await zip.generateAsync({ type: "blob" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${slug}-anilar.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-      } catch {
-        /* sessiz */
-      }
-      setIndirme(null);
+      // Tüm oda mı yoksa seçim mi? Tümü ise ids boş → sunucu hepsini paketler.
+      const tumu = indirilecek.length === liste.length;
+      const ids = tumu ? "" : indirilecek.map((m) => m.id).join(",");
+      setIndirme({
+        mesaj: "Fotoğraflar hazırlanıyor…",
+        alt: `${indirilecek.length} dosya · ZIP sunucuda oluşturuluyor. İndirme birazdan başlayacak (büyük galerilerde 1–2 dakika sürebilir).`,
+      });
+      formIleIndir("/api/oda/indir", { slug, ids });
+      setTimeout(() => setIndirme(null), 6000);
     },
-    [slug, tekIndir],
+    [slug, liste.length, tekIndir],
   );
 
   function secimToggle(id: string) {
@@ -249,7 +269,7 @@ export function MusteriPanel({
   }
 
   function tumunuSec() {
-    setSecili(new Set(liste.map((m) => m.id)));
+    setSecili(new Set(kaynak.map((m) => m.id)));
   }
   function secimiTemizle() {
     setSecili(new Set());
@@ -276,6 +296,15 @@ export function MusteriPanel({
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setQrAcik(true)}
+              title="Misafir QR kodunu paylaş"
+              className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary"
+            >
+              <QrCode className="h-4 w-4" />
+              <span className="hidden sm:inline">QR Paylaş</span>
+            </button>
             <button
               type="button"
               onClick={yenile}
@@ -313,12 +342,19 @@ export function MusteriPanel({
           <Istatistik icon={PenLine} deger={anilar.length} etiket="Anı Notu" />
         </div>
 
-        <div className="mt-4 flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary-soft/40 px-4 py-3 text-sm text-primary-deep">
-          <Star className="h-4 w-4 shrink-0" />
+        <div className="mt-4 flex items-start gap-2 rounded-2xl border border-primary/20 bg-primary-soft/40 px-4 py-3 text-sm text-primary-deep">
+          <Star className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            <span className="font-semibold">{showroomSayi}</span>{" "}
-            fotoğraf showroom&apos;da yayında. Fotoğrafa tıklayıp büyütebilir, tek tek ya
-            da toplu indirebilirsin.
+            <span className="font-semibold">{showroomSayi}</span> fotoğraf vitrinde
+            yayında
+            {bekleyenSayi > 0 && (
+              <>
+                {" · "}
+                <span className="font-semibold">{bekleyenSayi}</span> onay bekliyor
+              </>
+            )}
+            . Beğendiğin fotoğrafı <span className="font-medium">“Showroom’a Gönder”</span> ile
+            yöneticinin onayına ilet; onaylanınca vitrinde yayınlanır.
           </p>
         </div>
 
@@ -357,15 +393,31 @@ export function MusteriPanel({
                   <>
                     {/* Araç çubuğu */}
                     <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm text-muted-foreground">
-                        {liste.length} içerik
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          {kaynak.length} içerik
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setFavoriFiltre((v) => !v)}
+                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                            favoriFiltre
+                              ? "bg-rose text-white"
+                              : "border border-border text-foreground/70 hover:border-rose hover:text-rose"
+                          }`}
+                        >
+                          <Heart
+                            className={`h-3.5 w-3.5 ${favoriFiltre ? "fill-white" : ""}`}
+                          />
+                          Favoriler{favoriSayi > 0 ? ` (${favoriSayi})` : ""}
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2">
                         {!secimModu ? (
                           <>
                             <button
                               type="button"
-                              onClick={() => topluIndir(liste)}
+                              onClick={() => topluIndir(kaynak)}
                               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
                             >
                               <Download className="h-4 w-4" /> Tümünü indir
@@ -383,13 +435,13 @@ export function MusteriPanel({
                             <button
                               type="button"
                               onClick={
-                                secili.size === liste.length
+                                secili.size === kaynak.length
                                   ? secimiTemizle
                                   : tumunuSec
                               }
                               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
                             >
-                              {secili.size === liste.length
+                              {secili.size === kaynak.length
                                 ? "Seçimi kaldır"
                                 : "Tümünü seç"}
                             </button>
@@ -405,23 +457,36 @@ export function MusteriPanel({
                       </div>
                     </div>
 
+                    {kaynak.length === 0 && favoriFiltre && (
+                      <p className="rounded-2xl bg-muted px-4 py-8 text-center text-sm text-muted-foreground">
+                        Henüz favori eklemedin. Bir içeriğin kalbine dokunarak
+                        favorilerine ekleyebilirsin.
+                      </p>
+                    )}
                     <div className="columns-2 gap-4 [column-fill:_balance] sm:columns-3 lg:columns-4">
-                      {liste.slice(0, gosterilen).map((m, i) => (
+                      {kaynak.slice(0, gosterilen).map((m, i) => (
                         <MedyaKart
                           key={m.id}
                           slug={slug}
                           medya={m}
                           secimModu={secimModu}
                           secili={secili.has(m.id)}
-                          onAc={() => setLightbox(i)}
+                          onAc={() => setLightbox(m.id)}
                           onSecim={() => secimToggle(m.id)}
                           onIndir={() => tekIndir(m, i)}
                           onSil={() => silMedya(m)}
-                          onShowroom={(onay) =>
+                          onFavori={() => favoriToggle(m)}
+                          onShowroom={(talep) =>
                             setListe((o) =>
                               o.map((x) =>
                                 x.id === m.id
-                                  ? { ...x, showroom_approved: onay }
+                                  ? {
+                                      ...x,
+                                      showroom_requested: talep,
+                                      showroom_approved: talep
+                                        ? x.showroom_approved
+                                        : false,
+                                    }
                                   : x,
                               ),
                             )
@@ -429,7 +494,7 @@ export function MusteriPanel({
                         />
                       ))}
                     </div>
-                    {gosterilen < liste.length && (
+                    {gosterilen < kaynak.length && (
                       <div
                         ref={sentinelRef}
                         className="flex justify-center py-6"
@@ -438,12 +503,12 @@ export function MusteriPanel({
                           type="button"
                           onClick={() =>
                             setGosterilen((g) =>
-                              Math.min(g + GOSTER_ADIM, liste.length),
+                              Math.min(g + GOSTER_ADIM, kaynak.length),
                             )
                           }
                           className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-medium hover:border-primary hover:text-primary"
                         >
-                          Daha fazla göster ({liste.length - gosterilen})
+                          Daha fazla göster ({kaynak.length - gosterilen})
                         </button>
                       </div>
                     )}
@@ -516,15 +581,20 @@ export function MusteriPanel({
 
       {/* Lightbox */}
       <AnimatePresence>
-        {lightbox !== null && liste[lightbox] && (
-          <Lightbox
-            liste={liste}
-            index={lightbox}
-            onKapat={() => setLightbox(null)}
-            onGit={(i) => setLightbox(i)}
-            onIndir={(m, i) => tekIndir(m, i)}
-          />
-        )}
+        {(() => {
+          if (lightbox === null) return null;
+          const idx = kaynak.findIndex((m) => m.id === lightbox);
+          if (idx < 0) return null; // görsel artık listede yok (ör. favoriden çıkarıldı)
+          return (
+            <Lightbox
+              liste={kaynak}
+              index={idx}
+              onKapat={() => setLightbox(null)}
+              onGit={(i) => setLightbox(kaynak[i]?.id ?? null)}
+              onIndir={(m, i) => tekIndir(m, i)}
+            />
+          );
+        })()}
       </AnimatePresence>
 
       {/* İndirme ilerleme overlay */}
@@ -536,17 +606,127 @@ export function MusteriPanel({
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm"
           >
-            <div className="rounded-2xl bg-card px-8 py-6 text-center shadow-elegant">
+            <div className="mx-6 max-w-xs rounded-2xl bg-card px-8 py-6 text-center shadow-elegant">
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-              <p className="font-display mt-3 font-semibold">İndiriliyor…</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {indirme.yapilan} / {indirme.toplam} hazırlanıyor
-              </p>
+              <p className="font-display mt-3 font-semibold">{indirme.mesaj}</p>
+              {indirme.alt && (
+                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  {indirme.alt}
+                </p>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* QR Paylaş */}
+      <AnimatePresence>
+        {qrAcik && <QrModal slug={slug} onKapat={() => setQrAcik(false)} />}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/* ----------------------- QR Paylaş modalı ----------------------- */
+function QrModal({ slug, onKapat }: { slug: string; onKapat: () => void }) {
+  const [qr, setQr] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [kopya, setKopya] = useState(false);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+  const misafirLink = origin ? `${origin}/e/${slug}` : "";
+
+  useEffect(() => {
+    if (!misafirLink) return;
+    QRCode.toDataURL(misafirLink, { width: 600, margin: 2 })
+      .then(setQr)
+      .catch(() => setQr(""));
+  }, [misafirLink]);
+
+  async function paylas() {
+    if (!misafirLink) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "Anılarını paylaş",
+          text: "Fotoğraf ve videolarını bu bağlantıdan yükleyebilirsin:",
+          url: misafirLink,
+        });
+        return;
+      } catch {
+        /* iptal edildi */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(misafirLink);
+      setKopya(true);
+      setTimeout(() => setKopya(false), 1800);
+    } catch {
+      /* sessiz */
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={onKapat}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 px-5 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ scale: 0.95, y: 10 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm rounded-3xl border border-border bg-card p-7 text-center shadow-elegant"
+      >
+        <div className="flex items-center justify-between">
+          <p className="font-display text-lg font-semibold">Misafir QR Kodu</p>
+          <button
+            type="button"
+            onClick={onKapat}
+            aria-label="Kapat"
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Misafirlerin bunu okutarak fotoğraf, video ve anı yükler.
+        </p>
+        <div className="mx-auto mt-5 w-fit rounded-2xl border border-border bg-white p-3">
+          {qr ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qr} alt="Misafir QR kodu" className="h-52 w-52" />
+          ) : (
+            <div className="flex h-52 w-52 items-center justify-center text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          )}
+        </div>
+        <div className="mt-5 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={paylas}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground shadow-elegant hover:brightness-110"
+          >
+            <Share2 className="h-4 w-4" /> {kopya ? "Bağlantı kopyalandı" : "Paylaş"}
+          </button>
+          {qr && (
+            <a
+              href={qr}
+              download={`misafir-qr-${slug}.png`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border py-3 text-sm font-medium hover:border-primary hover:text-primary"
+            >
+              <Download className="h-4 w-4" /> QR kodunu indir
+            </a>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -740,6 +920,7 @@ function MedyaKart({
   onSecim,
   onIndir,
   onSil,
+  onFavori,
   onShowroom,
 }: {
   slug: string;
@@ -750,25 +931,29 @@ function MedyaKart({
   onSecim: () => void;
   onIndir: () => void;
   onSil: () => void;
-  onShowroom: (onay: boolean) => void;
+  onFavori: () => void;
+  onShowroom: (talep: boolean) => void;
 }) {
   const [kaydediyor, setKaydediyor] = useState(false);
+
+  // Mevcut durum: vitrinde mi, onay bekliyor mu, hiç gönderilmemiş mi?
+  const gonderildi = medya.showroom_requested || medya.showroom_approved;
 
   async function showroomToggle(e: React.MouseEvent) {
     e.stopPropagation();
     if (kaydediyor) return;
-    const yeni = !medya.showroom_approved;
+    const yeniTalep = !gonderildi; // gönder ↔ geri çek
     setKaydediyor(true);
-    onShowroom(yeni);
+    onShowroom(yeniTalep);
     try {
       const res = await fetch("/api/oda/showroom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, mediaId: medya.id, onay: yeni }),
+        body: JSON.stringify({ slug, mediaId: medya.id, onay: yeniTalep }),
       });
       if (!res.ok) throw new Error();
     } catch {
-      onShowroom(!yeni);
+      onShowroom(!yeniTalep);
     } finally {
       setKaydediyor(false);
     }
@@ -828,20 +1013,40 @@ function MedyaKart({
           </span>
         )}
 
-        {/* İndir (görüntüleme modunda, hover'da) */}
+        {/* Favori (her zaman görünür) + İndir (hover) */}
         {!secimModu && (
-          <span
-            role="button"
-            tabIndex={-1}
-            onClick={(e) => {
-              e.stopPropagation();
-              onIndir();
-            }}
-            className="absolute right-2 top-2 hidden rounded-full bg-black/40 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/60 group-hover:block"
-            aria-label="İndir"
-          >
-            <Download className="h-4 w-4" />
-          </span>
+          <>
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => {
+                e.stopPropagation();
+                onFavori();
+              }}
+              className={`absolute left-2 ${
+                medya.file_type === "video" ? "top-9" : "top-2"
+              } rounded-full p-1.5 backdrop-blur transition-colors ${
+                medya.is_favorite
+                  ? "bg-rose text-white"
+                  : "bg-black/40 text-white hover:bg-black/60"
+              }`}
+              aria-label="Favori"
+            >
+              <Heart className={`h-4 w-4 ${medya.is_favorite ? "fill-white" : ""}`} />
+            </span>
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(e) => {
+                e.stopPropagation();
+                onIndir();
+              }}
+              className="absolute right-2 top-2 hidden rounded-full bg-black/40 p-1.5 text-white backdrop-blur transition-colors hover:bg-black/60 group-hover:block"
+              aria-label="İndir"
+            >
+              <Download className="h-4 w-4" />
+            </span>
+          </>
         )}
       </button>
 
@@ -856,20 +1061,35 @@ function MedyaKart({
             type="button"
             onClick={showroomToggle}
             disabled={kaydediyor || secimModu}
+            title={
+              medya.showroom_approved
+                ? "Vitrinde yayında — geri çekmek için dokun"
+                : medya.showroom_requested
+                  ? "Onay bekliyor — geri çekmek için dokun"
+                  : "Yöneticinin onayına gönder"
+            }
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
               medya.showroom_approved
                 ? "bg-primary text-primary-foreground"
-                : "border border-primary/40 text-primary-deep hover:bg-primary-soft/50"
+                : medya.showroom_requested
+                  ? "bg-amber-100 text-amber-700"
+                  : "border border-primary/40 text-primary-deep hover:bg-primary-soft/50"
             }`}
           >
             {kaydediyor ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : medya.showroom_approved ? (
               <CheckCircle2 className="h-3.5 w-3.5" />
+            ) : medya.showroom_requested ? (
+              <Clock className="h-3.5 w-3.5" />
             ) : (
               <Star className="h-3.5 w-3.5" />
             )}
-            {medya.showroom_approved ? "Yayında" : "Showroom'da Yayınla"}
+            {medya.showroom_approved
+              ? "Vitrinde"
+              : medya.showroom_requested
+                ? "Onay bekliyor"
+                : "Showroom'a Gönder"}
           </button>
           {!secimModu && (
             <button
@@ -889,6 +1109,10 @@ function MedyaKart({
 }
 
 function AniKart({ ani }: { ani: OdaAni }) {
+  // Bazı tarayıcılar (ör. iPhone) belirli ses formatlarını satır içi çalamaz;
+  // bu durumda kayda erişim kaybolmasın diye indirme bağlantısına düşeriz.
+  const [calinamadi, setCalinamadi] = useState(false);
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <p className="font-display font-semibold">
@@ -899,12 +1123,28 @@ function AniKart({ ani }: { ani: OdaAni }) {
           {ani.message_text}
         </p>
       )}
-      {ani.audio_url && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
-          <Mic className="h-4 w-4 shrink-0 text-primary" />
-          <audio src={ani.audio_url} controls className="h-8 w-full" />
-        </div>
-      )}
+      {ani.audio_url &&
+        (calinamadi ? (
+          <a
+            href={ani.audio_url}
+            download
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-muted px-3 py-2 text-sm font-medium text-primary-deep hover:bg-primary-soft/50"
+          >
+            <Download className="h-4 w-4 shrink-0" />
+            Sesli anıyı indir
+          </a>
+        ) : (
+          <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
+            <Mic className="h-4 w-4 shrink-0 text-primary" />
+            <audio
+              src={ani.audio_url}
+              controls
+              preload="metadata"
+              onError={() => setCalinamadi(true)}
+              className="h-8 w-full"
+            />
+          </div>
+        ))}
     </div>
   );
 }

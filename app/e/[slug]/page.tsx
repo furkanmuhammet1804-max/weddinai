@@ -16,7 +16,7 @@ export default async function GuestPage(props: PageProps<"/e/[slug]">) {
   const admin = createAdminClient();
   const { data: ev } = await admin
     .from("events")
-    .select("id, title, event_type, status")
+    .select("id, title, event_type, status, expires_at")
     .ilike("slug", temizSlug)
     .maybeSingle();
 
@@ -24,8 +24,10 @@ export default async function GuestPage(props: PageProps<"/e/[slug]">) {
     notFound();
   }
 
-  // Arşivlenmiş etkinlik: sayfa açılır ama yükleme kapalı.
-  const kapali = ev.status === "arsivlendi";
+  // Arşivlenmiş VEYA süresi dolmuş etkinlik: sayfa açılır ama yükleme kapalı.
+  const suresiDoldu =
+    !!ev.expires_at && new Date(ev.expires_at as string).getTime() <= Date.now();
+  const kapali = ev.status === "arsivlendi" || suresiDoldu;
 
   return (
     <GuestApp

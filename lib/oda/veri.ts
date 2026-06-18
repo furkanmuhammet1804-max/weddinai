@@ -23,6 +23,7 @@ export interface OdaBilgi {
   event_type: string;
   event_date: string | null;
   status: string;
+  expires_at?: string | null;
 }
 
 export interface OdaMedya {
@@ -31,6 +32,8 @@ export interface OdaMedya {
   file_type: FotoVideo;
   guest_name: string | null;
   showroom_approved: boolean;
+  showroom_requested: boolean;
+  is_favorite: boolean;
   status: string;
   created_at: string;
 }
@@ -65,17 +68,28 @@ export async function odaBilgiId(eventId: string): Promise<OdaBilgi | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("events")
-    .select("id, title, slug, event_type, event_date, status")
+    .select("id, title, slug, event_type, event_date, status, expires_at")
     .eq("id", eventId)
     .maybeSingle();
   return (data as OdaBilgi) ?? null;
+}
+
+// Oda hâlâ müşteriye açık mı? (aktif + süresi dolmamış)
+export function odaAcikMi(bilgi: OdaBilgi | null): boolean {
+  if (!bilgi) return false;
+  if (bilgi.status !== "aktif") return false;
+  if (bilgi.expires_at && new Date(bilgi.expires_at).getTime() <= Date.now())
+    return false;
+  return true;
 }
 
 export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("media")
-    .select("id, storage_path, file_type, guest_name, showroom_approved, status, created_at")
+    .select(
+      "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, status, created_at",
+    )
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
   const satirlar = data ?? [];
@@ -89,6 +103,8 @@ export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
     file_type: m.file_type as FotoVideo,
     guest_name: (m.guest_name as string) ?? null,
     showroom_approved: !!m.showroom_approved,
+    showroom_requested: !!m.showroom_requested,
+    is_favorite: !!m.is_favorite,
     status: m.status as string,
     created_at: m.created_at as string,
   }));
@@ -119,19 +135,38 @@ export async function odaAnilari(eventId: string): Promise<OdaAni[]> {
   }));
 }
 
-// Müşteri bir fotoğrafı showroom'da yayınlar/geri çeker. eventId ile
-// sınırlıdır → müşteri yalnızca KENDİ odasının medyasını değiştirir.
-export async function showroomOnayDegistir(
+// Müşteri bir fotoğrafı showroom'a GÖNDERİR / geri çeker (admin onayı bekler).
+// eventId ile sınırlıdır → müşteri yalnızca KENDİ odasının medyasını değiştirir.
+// Talebi geri çekince admin onayı da düşer (vitrinden çıkar).
+export async function showroomTalepDegistir(
   eventId: string,
   mediaId: string,
-  onay: boolean,
+  talep: boolean,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const yama = talep
+    ? { showroom_requested: true }
+    : { showroom_requested: false, showroom_approved: false };
+  const { error } = await admin
+    .from("media")
+    .update(yama)
+    .eq("id", mediaId)
+    .eq("event_id", eventId); // güvenlik: yalnızca bu odaya ait satır
+  return !error;
+}
+
+// Müşteri bir içeriği favorilere ekler/çıkarır (kendi odasıyla sınırlı).
+export async function favoriDegistir(
+  eventId: string,
+  mediaId: string,
+  favori: boolean,
 ): Promise<boolean> {
   const admin = createAdminClient();
   const { error } = await admin
     .from("media")
-    .update({ showroom_approved: onay })
+    .update({ is_favorite: favori })
     .eq("id", mediaId)
-    .eq("event_id", eventId); // güvenlik: yalnızca bu odaya ait satır
+    .eq("event_id", eventId);
   return !error;
 }
 
@@ -152,6 +187,7 @@ export async function slaytVerisi(
     .select("id, title, slug, event_type, event_date, status")
     .ilike("slug", slug)
     .eq("status", "aktif")
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
   if (!ev) return null;
 
@@ -188,6 +224,7 @@ export async function showroomVerisi(
     .select("id, title, slug, event_type, event_date, status")
     .ilike("slug", slug)
     .eq("status", "aktif")
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
   if (!ev) return null;
 
@@ -196,6 +233,7 @@ export async function showroomVerisi(
     .select("id, storage_path")
     .eq("event_id", ev.id)
     .eq("showroom_approved", true)
+    .neq("status", "reddedildi")
     .eq("file_type", "fotograf")
     .order("created_at", { ascending: false });
   const satirlar = medya ?? [];
@@ -211,4 +249,220 @@ export async function showroomVerisi(
     .filter((f) => f.url);
 
   return { bilgi: ev as OdaBilgi, fotograflar };
+}
+
+// =============================================================
+// GENEL SHOWROOM — tüm aktif/süresi dolmamış odaların admin onaylı
+// fotoğrafları (herkese açık vitrin, ana sayfadan erişilir).
+// =============================================================
+export interface GenelVitrinFoto {
+  id: string;
+  url: string;
+  event_title: string;
+  slug: string;
+}
+
+export async function showroomGenelVerisi(
+  limit = 60,
+): Promise<GenelVitrinFoto[]> {
+  const admin = createAdminClient();
+  // Önce aktif + süresi dolmamış oda id'leri.
+  const { data: odalar } = await admin
+    .from("events")
+    .select("id, title, slug")
+    .eq("status", "aktif")
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
+  const odaMap = new Map(
+    (odalar ?? []).map((o) => [
+      o.id as string,
+      { title: o.title as string, slug: o.slug as string },
+    ]),
+  );
+  if (odaMap.size === 0) return [];
+
+  const { data: medya } = await admin
+    .from("media")
+    .select("id, storage_path, event_id")
+    .in("event_id", [...odaMap.keys()])
+    .eq("showroom_approved", true)
+    .neq("status", "reddedildi")
+    .eq("file_type", "fotograf")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  const satirlar = medya ?? [];
+  const harita = await imzaliUrlHaritasi(
+    MEDYA_BUCKET,
+    satirlar.map((m) => m.storage_path as string),
+  );
+  return satirlar
+    .map((m) => {
+      const oda = odaMap.get(m.event_id as string);
+      return {
+        id: m.id as string,
+        url: harita.get(m.storage_path as string) ?? "",
+        event_title: oda?.title ?? "",
+        slug: oda?.slug ?? "",
+      };
+    })
+    .filter((f) => f.url);
+}
+
+// =============================================================
+// YÖNETİCİ (ADMIN) tarafı — service_role ile, RLS bypass.
+// =============================================================
+
+export interface AdminOdaOzet {
+  id: string;
+  title: string;
+  customer_name: string | null;
+  event_type: string;
+  event_date: string | null;
+  slug: string;
+  status: string;
+  created_at: string;
+  expires_at: string | null;
+  medya_sayi: number;
+  bekleyen_onay: number;
+}
+
+// Süresi dolmasına kalan gün (negatifse 0). null = sınırsız.
+export function kalanGun(expires_at: string | null | undefined): number | null {
+  if (!expires_at) return null;
+  const ms = new Date(expires_at).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+}
+
+export async function adminOdalar(): Promise<AdminOdaOzet[]> {
+  const admin = createAdminClient();
+  const { data: odalar } = await admin
+    .from("events")
+    .select(
+      "id, title, customer_name, event_type, event_date, slug, status, created_at, expires_at",
+    )
+    .order("created_at", { ascending: false });
+  const liste = odalar ?? [];
+  if (liste.length === 0) return [];
+
+  const { data: medyalar } = await admin
+    .from("media")
+    .select("event_id, showroom_requested, showroom_approved");
+  const sayim = new Map<string, { toplam: number; bekleyen: number }>();
+  for (const m of medyalar ?? []) {
+    const k = m.event_id as string;
+    const v = sayim.get(k) ?? { toplam: 0, bekleyen: 0 };
+    v.toplam += 1;
+    if (m.showroom_requested && !m.showroom_approved) v.bekleyen += 1;
+    sayim.set(k, v);
+  }
+
+  return liste.map((o) => {
+    const v = sayim.get(o.id as string) ?? { toplam: 0, bekleyen: 0 };
+    return {
+      id: o.id as string,
+      title: o.title as string,
+      customer_name: (o.customer_name as string) ?? null,
+      event_type: o.event_type as string,
+      event_date: (o.event_date as string) ?? null,
+      slug: o.slug as string,
+      status: o.status as string,
+      created_at: o.created_at as string,
+      expires_at: (o.expires_at as string) ?? null,
+      medya_sayi: v.toplam,
+      bekleyen_onay: v.bekleyen,
+    };
+  });
+}
+
+export interface OnayBekleyen {
+  id: string;
+  url: string | null;
+  file_type: FotoVideo;
+  guest_name: string | null;
+  event_id: string;
+  event_title: string;
+  slug: string;
+  created_at: string;
+}
+
+// Tüm odalardaki, müşterinin gönderdiği ama admin'in onaylamadığı içerikler.
+export async function onayKuyrugu(): Promise<OnayBekleyen[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("media")
+    .select(
+      "id, storage_path, file_type, guest_name, event_id, created_at, events(title, slug)",
+    )
+    .eq("showroom_requested", true)
+    .eq("showroom_approved", false)
+    .order("created_at", { ascending: false });
+  const satirlar = data ?? [];
+  const harita = await imzaliUrlHaritasi(
+    MEDYA_BUCKET,
+    satirlar.map((m) => m.storage_path as string),
+  );
+  return satirlar.map((m) => {
+    const ev = (m as { events?: { title?: string; slug?: string } }).events;
+    return {
+      id: m.id as string,
+      url: harita.get(m.storage_path as string) ?? null,
+      file_type: m.file_type as FotoVideo,
+      guest_name: (m.guest_name as string) ?? null,
+      event_id: m.event_id as string,
+      event_title: ev?.title ?? "Oda",
+      slug: ev?.slug ?? "",
+      created_at: m.created_at as string,
+    };
+  });
+}
+
+// Admin bir içeriği vitrine onaylar (true) veya reddeder (false → talebi düşür).
+export async function adminOnayDegistir(
+  mediaId: string,
+  onay: boolean,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const yama = onay
+    ? { showroom_approved: true }
+    : { showroom_approved: false, showroom_requested: false };
+  const { error } = await admin.from("media").update(yama).eq("id", mediaId);
+  return !error;
+}
+
+export interface AdminIstatistik {
+  oda: number;
+  aktifOda: number;
+  medya: number;
+  ani: number;
+  bekleyenOnay: number;
+  vitrindeki: number;
+}
+
+export async function adminIstatistik(): Promise<AdminIstatistik> {
+  const admin = createAdminClient();
+  const [oda, aktif, medya, ani, bekleyen, vitrin] = await Promise.all([
+    admin.from("events").select("id", { count: "exact", head: true }),
+    admin
+      .from("events")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "aktif"),
+    admin.from("media").select("id", { count: "exact", head: true }),
+    admin.from("guestbook").select("id", { count: "exact", head: true }),
+    admin
+      .from("media")
+      .select("id", { count: "exact", head: true })
+      .eq("showroom_requested", true)
+      .eq("showroom_approved", false),
+    admin
+      .from("media")
+      .select("id", { count: "exact", head: true })
+      .eq("showroom_approved", true),
+  ]);
+  return {
+    oda: oda.count ?? 0,
+    aktifOda: aktif.count ?? 0,
+    medya: medya.count ?? 0,
+    ani: ani.count ?? 0,
+    bekleyenOnay: bekleyen.count ?? 0,
+    vitrindeki: vitrin.count ?? 0,
+  };
 }

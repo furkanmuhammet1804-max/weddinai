@@ -11,22 +11,22 @@ const gruplar: {
     linkler: [
       { href: "/#ozellikler", label: "Özellikler" },
       { href: "/#nasil-calisir", label: "Nasıl Çalışır" },
-      { href: "/panel", label: "Yönetim Paneli" },
+      { href: "/fiyatlar", label: "Fiyatlar" },
     ],
   },
   {
-    baslik: "Etkinlikler",
+    baslik: "Erişim",
     linkler: [
-      { href: "/e/elif-mert", label: "Düğün" },
-      { href: "/e/zeynep-kina", label: "Kına Gecesi" },
-      { href: "/e/atlas-gala-2026", label: "Kurumsal Gala" },
+      { href: "/showroom", label: "Showroom" },
+      { href: "/musteri", label: "Müşteri Girişi" },
+      { href: "/siparis", label: "Sipariş Ver" },
     ],
   },
   {
     baslik: "Kurumsal",
     linkler: [
       { href: null, label: "Hakkımızda" },
-      { href: null, label: "Gizlilik Politikası" },
+      { href: "/kvkk", label: "Gizlilik & KVKK" },
       { href: null, label: "İletişim" },
     ],
   },

@@ -53,7 +53,7 @@ export function TaleplerListe({ talepler }: { talepler: Talep[] }) {
           </p>
         </div>
         <Link
-          href="/panel/oda/yeni"
+          href="/admin/oda/yeni"
           className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-elegant hover:brightness-110"
         >
           <Plus className="h-4 w-4" /> Yeni Oda
@@ -95,7 +95,7 @@ function TalepKart({ talep }: { talep: Talep }) {
     setDurum(yeni);
     setKaydediyor(true);
     try {
-      const res = await fetch("/api/panel/talep", {
+      const res = await fetch("/api/admin/talep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: talep.id, durum: yeni }),
@@ -184,7 +184,7 @@ function TalepKart({ talep }: { talep: Talep }) {
           </a>
         )}
         <Link
-          href="/panel/oda/yeni"
+          href="/admin/oda/yeni"
           className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" /> Oda Oluştur

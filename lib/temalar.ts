@@ -1,5 +1,5 @@
-// WeddinAI tema paletleri. "altin" varsayılan (data-theme yok); diğerleri
-// <html data-theme="..."> ile globals.css'teki override bloklarını tetikler.
+// WeddinAI tema paletleri. "gul" varsayılan (data-theme yok); diğerleri
+// (altin dahil) <html data-theme="..."> ile globals.css override'larını tetikler.
 
 export type TemaId = "altin" | "turkuaz" | "zumrut" | "gul" | "gece";
 
@@ -18,7 +18,7 @@ export const TEMALAR: Tema[] = [
   { id: "gece", ad: "Gece Mavisi", nokta: "linear-gradient(135deg,#5570e8,#2b3f9e)" },
 ];
 
-export const VARSAYILAN_TEMA: TemaId = "altin";
+export const VARSAYILAN_TEMA: TemaId = "gul";
 export const TEMA_DEPO_ANAHTARI = "tema";
 
 /** SSR öncesi flash'ı önleyen, <head>'e gömülen senkron script. */

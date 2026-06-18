@@ -11,6 +11,8 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
+    "@types/archiver": "^8.0.0",
+    "archiver": "^8.0.0",
     "framer-motion": "^12.40.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.17.0",

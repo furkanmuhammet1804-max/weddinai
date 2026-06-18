@@ -16,6 +16,7 @@ import { SiteNav } from "@/components/site/site-nav";
 import { SiteFooter } from "@/components/site/site-footer";
 import { Hero } from "@/components/site/hero";
 import { Reveal } from "@/components/site/reveal";
+import { SSS } from "@/components/site/sss";
 import { ButtonLink } from "@/components/ui/button";
 
 const ozellikler = [
@@ -78,12 +79,13 @@ const adimlar = [
   },
 ];
 
+const ETKINLIK_TONE = "from-primary to-primary-deep";
 const etkinlikTurleri = [
-  { icon: Sparkles, ad: "Lüks Düğün", tone: "from-rose to-primary-soft" },
-  { icon: Flower2, ad: "Kına Gecesi", tone: "from-rose-soft to-rose" },
-  { icon: Building2, ad: "Kurumsal Gala", tone: "from-primary-soft to-accent" },
-  { icon: Cake, ad: "Doğum Günü", tone: "from-accent to-primary" },
-  { icon: PartyPopper, ad: "Nişan & Söz", tone: "from-primary-soft to-rose-soft" },
+  { icon: Sparkles, ad: "Lüks Düğün", tone: ETKINLIK_TONE },
+  { icon: Flower2, ad: "Kına Gecesi", tone: ETKINLIK_TONE },
+  { icon: Building2, ad: "Kurumsal Gala", tone: ETKINLIK_TONE },
+  { icon: Cake, ad: "Doğum Günü", tone: ETKINLIK_TONE },
+  { icon: PartyPopper, ad: "Nişan & Söz", tone: ETKINLIK_TONE },
 ];
 
 export default function Home() {
@@ -197,6 +199,9 @@ export default function Home() {
           </div>
         </section>
 
+        {/* SSS */}
+        <SSS />
+
         {/* CTA */}
         <section className="mx-auto max-w-7xl px-5 pb-8 sm:px-8">
           <Reveal>
@@ -206,15 +211,15 @@ export default function Home() {
                 <span className="text-gradient-gold">unutulmaz</span> kılın
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-                İlk etkinliğiniz tamamen ücretsiz. Kredi kartı gerekmez, kurulum
-                30 saniye sürer.
+                Anılar güvende, kontrol sizde. Vitrini keşfedin ya da size verilen
+                oda koduyla kendi etkinliğinize giriş yapın.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <ButtonLink href="/kayit" size="lg">
-                  Ücretsiz Başla
+                <ButtonLink href="/showroom" size="lg">
+                  Showroom&apos;u Keşfet
                 </ButtonLink>
-                <ButtonLink href="/e/elif-mert" variant="outline" size="lg">
-                  Demoyu İncele
+                <ButtonLink href="/musteri" variant="outline" size="lg">
+                  Müşteri Girişi
                 </ButtonLink>
               </div>
             </div>

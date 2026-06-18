@@ -1,13 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { QrCode, Sparkles, Camera, Mic, Heart } from "lucide-react";
+import { QrCode, Sparkles, Camera, Mic, Heart, Video } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 
 const yuzenKartlar = [
   { tone: "from-rose to-primary-soft", icon: Camera, etiket: "Fotoğraf", x: "-8%", y: "6%", delay: 0 },
   { tone: "from-primary-soft to-accent", icon: Mic, etiket: "Sesli Anı", x: "70%", y: "-4%", delay: 0.4 },
   { tone: "from-accent to-primary", icon: Heart, etiket: "+128 beğeni", x: "78%", y: "62%", delay: 0.8 },
+  { tone: "from-rose-soft to-accent", icon: Video, etiket: "Video", x: "-6%", y: "66%", delay: 1.2 },
 ];
 
 export function Hero() {
@@ -53,12 +54,12 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="mt-9 flex flex-col gap-3 sm:flex-row"
           >
-            <ButtonLink href="/kayit" size="lg">
-              Ücretsiz Etkinlik Oluştur
-            </ButtonLink>
-            <ButtonLink href="/e/elif-mert" variant="outline" size="lg">
+            <ButtonLink href="/showroom" size="lg">
               <QrCode className="h-4 w-4" />
-              Demo Misafir Sayfasını Gör
+              Showroom&apos;u Keşfet
+            </ButtonLink>
+            <ButtonLink href="/musteri" variant="outline" size="lg">
+              Müşteri Girişi
             </ButtonLink>
           </motion.div>
 

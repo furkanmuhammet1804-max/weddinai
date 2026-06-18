@@ -9,9 +9,10 @@ import { ButtonLink } from "@/components/ui/button";
 import { TemaSecici } from "@/components/theme/tema-secici";
 
 const baglantilar = [
+  { href: "/showroom", label: "Showroom" },
   { href: "/#ozellikler", label: "Özellikler" },
   { href: "/#nasil-calisir", label: "Nasıl Çalışır" },
-  { href: "/#etkinlikler", label: "Etkinlik Türleri" },
+  { href: "/#sss", label: "S.S.S." },
   { href: "/fiyatlar", label: "Fiyatlar" },
 ];
 
@@ -22,7 +23,7 @@ export function SiteNav() {
     <header className="sticky top-0 z-50">
       <div className="glass border-b border-border/60">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Logo />
+          <Logo priority />
 
           <div className="hidden items-center gap-8 md:flex">
             {baglantilar.map((b) => (
@@ -39,11 +40,11 @@ export function SiteNav() {
           <div className="hidden items-center gap-3 md:flex">
             <TemaSecici />
             <span className="h-5 w-px bg-border" aria-hidden />
-            <ButtonLink href="/giris" variant="ghost" size="sm">
-              Giriş Yap
+            <ButtonLink href="/showroom" variant="ghost" size="sm">
+              Showroom
             </ButtonLink>
-            <ButtonLink href="/kayit" size="sm">
-              Ücretsiz Başla
+            <ButtonLink href="/musteri" size="sm">
+              Müşteri Girişi
             </ButtonLink>
           </div>
 
@@ -83,11 +84,11 @@ export function SiteNav() {
                 <TemaSecici />
               </div>
               <div className="mt-2 flex gap-2">
-                <ButtonLink href="/giris" variant="outline" size="sm" className="flex-1">
-                  Giriş Yap
+                <ButtonLink href="/showroom" variant="outline" size="sm" className="flex-1">
+                  Showroom
                 </ButtonLink>
-                <ButtonLink href="/kayit" size="sm" className="flex-1">
-                  Ücretsiz Başla
+                <ButtonLink href="/musteri" size="sm" className="flex-1">
+                  Müşteri Girişi
                 </ButtonLink>
               </div>
             </div>
