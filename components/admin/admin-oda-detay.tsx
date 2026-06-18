@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { formIleIndir } from "@/lib/indir";
+import { kopyalaVeBildir } from "@/lib/pano";
 import {
   ArrowLeft,
   Copy,
@@ -495,12 +496,10 @@ function LinkSatiri({ link }: { link: string }) {
   const [kopya, setKopya] = useState(false);
   async function kopyala() {
     if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
+    const ok = await kopyalaVeBildir(link);
+    if (ok) {
       setKopya(true);
       setTimeout(() => setKopya(false), 1800);
-    } catch {
-      /* sessiz */
     }
   }
   return (

@@ -18,6 +18,13 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Etkinlik } from "@/lib/davetiye";
+import {
+  DAVETIYE_TEMALAR,
+  temaBul,
+  type DavetiyeTema,
+  type DavetiyeTemaId,
+} from "@/lib/davetiye-tema";
+import { CiftIsim } from "@/components/davetiye/cift-isim";
 
 const MAKS_FOTO = 12;
 const MAKS_BAYT = 25 * 1024 * 1024; // 25 MB
@@ -53,6 +60,7 @@ export function DavetiyeSiparis() {
   const [damatFoto, setDamatFoto] = useState<File | null>(null);
   const [galeri, setGaleri] = useState<File[]>([]);
   const [muzik, setMuzik] = useState<File | null>(null);
+  const [tema, setTema] = useState<DavetiyeTemaId>("ivory");
   const [durum, setDurum] = useState<"form" | "gonderiliyor" | "tamam">("form");
   const [asama, setAsama] = useState("");
   const [hata, setHata] = useState<string | null>(null);
@@ -114,7 +122,7 @@ export function DavetiyeSiparis() {
       const res = await fetch("/api/davetiye/talep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, etkinlikler }),
+        body: JSON.stringify({ ...form, etkinlikler, tema }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.hata ?? "Talep kaydedilemedi.");
@@ -154,15 +162,14 @@ export function DavetiyeSiparis() {
   const onGelin = ilkAd(form.gelin_ad) || "Elif";
   const onDamat = ilkAd(form.damat_ad) || "Mert";
   const onTarih = trTarih(dugun.tarih) ?? trTarih(kina.tarih) ?? "Yakında";
+  const aktifTema = temaBul(tema);
 
   if (durum === "tamam") {
-    return (
-      <Bitis gelin={onGelin} damat={onDamat} />
-    );
+    return <Bitis gelin={onGelin} damat={onDamat} />;
   }
 
   return (
-    <>
+    <div className="tema-fildisi">
       {/* ============================ HERO ============================ */}
       <section className="bg-aura relative overflow-hidden">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-16 pt-12 sm:px-8 sm:pb-24 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
@@ -216,7 +223,7 @@ export function DavetiyeSiparis() {
             transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
             className="relative mx-auto flex w-full max-w-[300px] justify-center"
           >
-            <Telefon gelin={onGelin} damat={onDamat} tarih={onTarih} />
+            <Telefon gelin={onGelin} damat={onDamat} tarih={onTarih} tema={aktifTema} />
           </motion.div>
         </div>
         <a
@@ -259,9 +266,30 @@ export function DavetiyeSiparis() {
 
         <Ayrac />
 
-        {/* 02 — Törenler: Kına & Düğün özel paneller */}
+        {/* 02 — Davetiye Teması: kartlar + canlı önizleme */}
         <Bolum
           no="02"
+          kicker="Görünüm"
+          baslik="🎨 Davetiye Teması"
+          aciklama="Davetiyenizin ruhunu seçin. Seçtiğiniz tema, yandaki önizlemede anında canlanır."
+        >
+          <div className="grid gap-8 lg:grid-cols-[1fr_15rem] lg:items-start lg:gap-10">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              {DAVETIYE_TEMALAR.map((t) => (
+                <TemaKart key={t.id} tema={t} secili={tema === t.id} onSec={() => setTema(t.id)} />
+              ))}
+            </div>
+            <div className="flex justify-center lg:sticky lg:top-24">
+              <Telefon gelin={onGelin} damat={onDamat} tarih={onTarih} tema={aktifTema} boyut="kucuk" />
+            </div>
+          </div>
+        </Bolum>
+
+        <Ayrac />
+
+        {/* 03 — Törenler: Kına & Düğün özel paneller */}
+        <Bolum
+          no="03"
           kicker="Törenler"
           baslik="Her tören, ayrı bir an"
           aciklama="Kına ve düğün, davetiyenizin en önemli iki anı. Her birini kendi alanında, özenle anlatın."
@@ -322,7 +350,7 @@ export function DavetiyeSiparis() {
 
         {/* 03 — Fotoğraflar */}
         <Bolum
-          no="03"
+          no="04"
           kicker="Görseller"
           baslik="Yüzünüz davetiyeye düşsün"
           aciklama="Gelin ve damat portreleri ile dilerseniz bir anı galerisi. Tümü isteğe bağlı."
@@ -359,7 +387,7 @@ export function DavetiyeSiparis() {
 
         {/* 04 — Aile */}
         <Bolum
-          no="04"
+          no="05"
           kicker="Takdim"
           baslik="Aileleriniz de orada olsun"
           aciklama="Davetiyede yer almasını istediğiniz aile takdimleri (isteğe bağlı)."
@@ -378,7 +406,7 @@ export function DavetiyeSiparis() {
 
         {/* 05 — Müzik */}
         <Bolum
-          no="05"
+          no="06"
           kicker="Atmosfer"
           baslik="🎵 Davetiye Müziği"
           aciklama="Davetiyeniz açıldığında çalacak melodi. Sizi en iyi anlatan parça hangisi?"
@@ -419,7 +447,7 @@ export function DavetiyeSiparis() {
 
         {/* 06 — Notlar */}
         <Bolum
-          no="06"
+          no="07"
           kicker="Son Dokunuş"
           baslik="Aklınızdaki her şey"
           aciklama="Tasarım, renk tercihi, davetiye mesajı… bize anlatın, hayata geçirelim."
@@ -450,7 +478,7 @@ export function DavetiyeSiparis() {
           </p>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 
@@ -663,43 +691,109 @@ function TekFoto({ label, file, onSec }: { label: string; file: File | null; onS
   );
 }
 
-// Canlı davetiye önizlemesi — gerçek yayın sayfasının estetiğiyle
-function Telefon({ gelin, damat, tarih }: { gelin: string; damat: string; tarih: string }) {
+// Tema kartı — seçilen tema belirgin (ring + onay). Mini davetiye swatch'ı.
+function TemaKart({ tema, secili, onSec }: { tema: DavetiyeTema; secili: boolean; onSec: () => void }) {
   return (
-    <div className="relative aspect-[9/19] w-full max-w-[300px] rounded-[2.6rem] border border-border bg-card p-2.5 shadow-elegant">
+    <button
+      type="button"
+      onClick={onSec}
+      aria-pressed={secili}
+      className={`group relative overflow-hidden rounded-2xl border bg-card p-1.5 text-left transition-all ${
+        secili
+          ? "border-primary ring-2 ring-primary/30"
+          : "border-border hover:border-primary/40"
+      }`}
+    >
+      <div
+        className="flex h-24 flex-col items-center justify-center gap-1.5 rounded-xl"
+        style={{ background: tema.bg }}
+      >
+        <span className="text-[8px] font-semibold tracking-[0.28em]" style={{ color: tema.alt }}>
+          DAVETLİSİNİZ
+        </span>
+        <span className="font-display text-2xl italic leading-none" style={{ color: tema.vurgu }}>
+          &amp;
+        </span>
+        <span className="h-px w-7" style={{ background: tema.vurgu, opacity: 0.5 }} />
+      </div>
+      <div className="flex items-center justify-between px-1.5 py-2">
+        <span className="text-sm font-medium">{tema.ad}</span>
+        {secili && <CheckCircle2 className="h-4 w-4 text-primary" />}
+      </div>
+    </button>
+  );
+}
+
+// Canlı davetiye önizlemesi — seçilen temanın renkleriyle, gerçek davetiyenin
+// mini versiyonu. İsimler daima stacked & ile gösterilir.
+function Telefon({
+  gelin,
+  damat,
+  tarih,
+  tema,
+  boyut = "buyuk",
+}: {
+  gelin: string;
+  damat: string;
+  tarih: string;
+  tema: DavetiyeTema;
+  boyut?: "buyuk" | "kucuk";
+}) {
+  const kucuk = boyut === "kucuk";
+  return (
+    <div
+      className={`relative aspect-[9/19] rounded-[2.6rem] border border-border bg-card p-2.5 shadow-elegant ${
+        kucuk ? "w-[210px]" : "w-full max-w-[300px]"
+      }`}
+    >
       {/* Dynamic island */}
-      <div className="absolute left-1/2 top-3.5 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-[#1a0e16]" />
-      <div className="relative flex h-full flex-col overflow-hidden rounded-[2.1rem] bg-[#1a0e16] text-white">
-        {/* yumuşak ışıltı */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(80%_55%_at_50%_0%,rgba(224,142,146,0.35),transparent_60%),radial-gradient(70%_50%_at_50%_100%,rgba(168,82,90,0.45),transparent_60%)]" />
-        <div className="relative flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <p className="font-display text-[10px] tracking-[0.34em] text-white/60">DAVETLİSİNİZ</p>
-          <h4 className="font-display mt-5 text-2xl leading-tight">
-            <span className="italic">{gelin}</span>
-            <span className="mx-2 text-rose-300">&</span>
-            <span className="italic">{damat}</span>
-          </h4>
-          <div className="mx-auto mt-5 h-px w-12 bg-white/25" />
-          <p className="mt-5 text-[11px] tracking-[0.18em] text-white/70">{tarih.toUpperCase()}</p>
-          <span className="mt-9 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-5 py-2 text-[11px] font-semibold text-[#1a0e16]">
+      <div className="absolute left-1/2 top-3.5 z-20 h-5 w-20 -translate-x-1/2 rounded-full bg-[#0e0e0e]" />
+      <div
+        className="relative flex h-full flex-col overflow-hidden rounded-[2.1rem]"
+        style={{ background: tema.bg, color: tema.yazi }}
+      >
+        <div className="relative flex flex-1 flex-col items-center justify-center px-5 text-center">
+          <p className="font-display text-[10px] tracking-[0.34em]" style={{ color: tema.alt }}>
+            DAVETLİSİNİZ
+          </p>
+          <CiftIsim
+            gelin={gelin}
+            damat={damat}
+            className="mt-4"
+            isimClassName={`font-display leading-tight ${kucuk ? "text-lg" : "text-2xl"}`}
+            ampClassName={`font-display italic ${kucuk ? "text-base" : "text-xl"}`}
+            ampStyle={{ color: tema.vurgu }}
+          />
+          <div className="mx-auto mt-4 h-px w-12" style={{ background: tema.vurgu, opacity: 0.5 }} />
+          <p className="mt-4 text-[11px] tracking-[0.18em]" style={{ color: tema.alt }}>
+            {tarih.toUpperCase()}
+          </p>
+          <span
+            className={`mt-7 inline-flex items-center gap-1.5 rounded-full px-5 py-2 font-semibold ${
+              kucuk ? "text-[10px]" : "text-[11px]"
+            }`}
+            style={{ background: tema.vurgu, color: tema.butonYazi }}
+          >
             <Play className="h-3 w-3 fill-current" /> Davetiyeyi Aç
           </span>
         </div>
-        <p className="relative pb-5 text-center text-[9px] tracking-[0.2em] text-white/30">
+        <p className="relative pb-5 text-center text-[9px] tracking-[0.2em]" style={{ color: tema.alt, opacity: 0.55 }}>
           WeddinAI
         </p>
       </div>
-      {/* canlı rozet */}
-      <div className="absolute -left-3 top-16 hidden items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-[11px] font-medium shadow-elegant backdrop-blur sm:flex">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> Canlı önizleme
-      </div>
+      {/* canlı rozet — yalnızca büyük (hero) önizlemede */}
+      {!kucuk && (
+        <div className="absolute -left-3 top-16 hidden items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-[11px] font-medium shadow-elegant backdrop-blur sm:flex">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> Canlı önizleme
+        </div>
+      )}
     </div>
   );
 }
 
 function Bitis({ gelin, damat }: { gelin: string; damat: string }) {
   return (
-    <section className="bg-aura flex min-h-[70vh] items-center justify-center px-6 py-20">
+    <section className="tema-fildisi bg-aura flex min-h-[70vh] items-center justify-center px-6 py-20">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -712,11 +806,13 @@ function Bitis({ gelin, damat }: { gelin: string; damat: string }) {
         <p className="mt-7 text-[11px] font-semibold uppercase tracking-[0.26em] text-primary-deep/70">
           Talebiniz alındı
         </p>
-        <h2 className="font-display mt-3 text-3xl tracking-tight sm:text-4xl">
-          <span className="italic">{gelin}</span>
-          <span className="mx-2 text-primary">&</span>
-          <span className="italic">{damat}</span>
-        </h2>
+        <CiftIsim
+          gelin={gelin}
+          damat={damat}
+          className="mt-4"
+          isimClassName="font-display text-3xl leading-tight sm:text-4xl"
+          ampClassName="font-display text-2xl italic text-primary sm:text-3xl"
+        />
         <p className="mx-auto mt-5 max-w-md text-[15px] leading-relaxed text-muted-foreground">
           Tasarım ekibimiz en kısa sürede sizinle iletişime geçip davetiyenizi
           hazırlamaya başlayacak. İlk taslağı 24 saat içinde paylaşırız.

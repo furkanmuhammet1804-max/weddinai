@@ -58,6 +58,7 @@ export interface DavetiyeGirdi {
   mesaj?: string | null;
   notlar?: string | null;
   muzik_youtube?: string | null;
+  tema?: string | null; // ivory | gold | rose | midnight
 }
 
 export interface Davetiye extends DavetiyeGirdi {
@@ -95,11 +96,25 @@ export async function davetiyeOlustur(g: DavetiyeGirdi): Promise<string | null> 
     .insert({ ...g, durum: "talep_alindi" })
     .select("id")
     .single();
-  if (error) {
-    console.error("[davetiye] olustur hata", error.message);
+  if (!error) return data.id as string;
+
+  // "tema" kolonu henüz migrate edilmemişse (42703: undefined column),
+  // temasız tekrar dene — production'ı asla bozma.
+  if (error.code === "42703" && g.tema !== undefined) {
+    const temasiz = { ...g };
+    delete temasiz.tema;
+    const tekrar = await admin
+      .from("davetiyeler")
+      .insert({ ...temasiz, durum: "talep_alindi" })
+      .select("id")
+      .single();
+    if (!tekrar.error) return tekrar.data.id as string;
+    console.error("[davetiye] olustur hata (temasiz)", tekrar.error.message);
     return null;
   }
-  return data.id as string;
+
+  console.error("[davetiye] olustur hata", error.message);
+  return null;
 }
 
 // Yüklenen materyalleri kayda bağla (yalnızca o kayıt).

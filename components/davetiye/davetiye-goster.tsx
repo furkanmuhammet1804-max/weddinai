@@ -125,10 +125,10 @@ export function DavetiyeGoster({ data }: { data: Data }) {
           className="relative z-10 px-6 text-center"
         >
           <p className="font-display text-sm tracking-[0.3em] text-white/70">DAVETLİSİNİZ</p>
-          <h1 className="font-display mt-4 text-4xl leading-tight sm:text-6xl">
-            {data.gelin}
-            <span className="mx-3 inline-block text-rose-300">❤</span>
-            {data.damat}
+          <h1 className="font-display mt-5 flex flex-col items-center leading-[1.06]">
+            <span className="break-words text-4xl sm:text-6xl">{data.gelin}</span>
+            <span className="my-2 text-3xl italic text-rose-300 sm:my-3 sm:text-4xl">&amp;</span>
+            <span className="break-words text-4xl sm:text-6xl">{data.damat}</span>
           </h1>
           <div className="mt-10 flex flex-col items-center gap-3">
             <button onClick={ac} className="rounded-full bg-white/95 px-7 py-3 text-sm font-semibold text-[#1a0e16] shadow-lg transition hover:bg-white">

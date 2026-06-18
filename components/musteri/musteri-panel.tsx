@@ -28,6 +28,7 @@ import {
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { blobIndir, formIleIndir } from "@/lib/indir";
+import { kopyalaVeBildir } from "@/lib/pano";
 import type { OdaBilgi, OdaMedya, OdaAni } from "@/lib/oda/veri";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
@@ -659,12 +660,10 @@ function QrModal({ slug, onKapat }: { slug: string; onKapat: () => void }) {
         /* iptal edildi */
       }
     }
-    try {
-      await navigator.clipboard.writeText(misafirLink);
+    const ok = await kopyalaVeBildir(misafirLink, "Bağlantı kopyalandı");
+    if (ok) {
       setKopya(true);
       setTimeout(() => setKopya(false), 1800);
-    } catch {
-      /* sessiz */
     }
   }
 

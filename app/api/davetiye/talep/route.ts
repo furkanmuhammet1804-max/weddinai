@@ -5,6 +5,7 @@ import {
   type DavetiyeGirdi,
   type Etkinlik,
 } from "@/lib/davetiye";
+import { TEMA_IDLER, type DavetiyeTemaId } from "@/lib/davetiye-tema";
 
 const kirp = (v: unknown, n: number) =>
   typeof v === "string" ? v.trim().slice(0, n) || null : null;
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
     );
   }
 
+  const tema: DavetiyeTemaId = TEMA_IDLER.includes(b.tema as DavetiyeTemaId)
+    ? (b.tema as DavetiyeTemaId)
+    : "ivory";
+
   const girdi: DavetiyeGirdi = {
     gelin_ad,
     damat_ad,
@@ -67,6 +72,7 @@ export async function POST(request: Request) {
     mesaj: kirp(b.mesaj, 1500),
     notlar: kirp(b.notlar, 1500),
     muzik_youtube: kirp(b.muzik_youtube, 300),
+    tema,
   };
 
   const id = await davetiyeOlustur(girdi);

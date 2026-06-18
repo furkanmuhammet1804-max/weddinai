@@ -12,8 +12,12 @@ import {
   Rocket,
   Link2,
   CalendarHeart,
+  Copy,
+  Palette,
 } from "lucide-react";
 import type { Davetiye } from "@/lib/davetiye";
+import { temaBul } from "@/lib/davetiye-tema";
+import { kopyalaVeBildir } from "@/lib/pano";
 
 // (Sunucu modülünü client'a çekmemek için durumlar burada da tanımlı.)
 const DURUMLAR: { id: string; etiket: string; sinif: string }[] = [
@@ -123,9 +127,12 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-display text-lg font-semibold">
-              {d.gelin_ad} <span className="text-primary">❤</span> {d.damat_ad}
+              {d.gelin_ad} <span className="font-display italic text-primary">&</span> {d.damat_ad}
             </h3>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${rozet.sinif}`}>{rozet.etiket}</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-deep">
+              <Palette className="h-3 w-3" /> {temaBul(d.tema).ad}
+            </span>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-mono text-muted-foreground">#{kisaNo(d.id)}</span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -178,6 +185,13 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
             <a href={`/davetiye/${slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 px-3.5 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
               <ExternalLink className="h-3.5 w-3.5" /> Davetiyeyi Aç
             </a>
+            <button
+              type="button"
+              onClick={() => kopyalaVeBildir(`${window.location.origin}/davetiye/${slug}`, "Davetiye linki kopyalandı")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-primary hover:text-primary"
+            >
+              <Copy className="h-3.5 w-3.5" /> Kopyala
+            </button>
             <button type="button" onClick={() => durumDegistir("tasarim_hazirlaniyor")} disabled={kaydediyor} className="rounded-full border border-border px-3.5 py-1.5 text-sm font-medium hover:border-rose hover:text-rose disabled:opacity-60">
               Yayından kaldır
             </button>
