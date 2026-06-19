@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Check, Sparkles, Star, Crown, Camera, ArrowRight, MessageCircle } from "lucide-react";
+import { Check, Sparkles, QrCode, Gift, Crown, ArrowRight, MessageCircle } from "lucide-react";
 import { SiteNav } from "@/components/site/site-nav";
 import { SiteFooter } from "@/components/site/site-footer";
 import { siparisLinki, bayiLinki, WHATSAPP_VAR } from "@/lib/iletisim";
@@ -7,7 +7,7 @@ import { siparisLinki, bayiLinki, WHATSAPP_VAR } from "@/lib/iletisim";
 export const metadata: Metadata = {
   title: "Fiyatlar — WeddinAI",
   description:
-    "Düğün, nişan ve etkinlikleriniz için WeddinAI paketleri. Sınırsız misafir, canlı slayt, showroom ve toplu indirme.",
+    "Düğün, nişan ve etkinlikleriniz için WeddinAI paketleri. QR ile misafir fotoğrafları, basılı QR kod gönderimi, dijital davetiye hediye ve flash bellek seçenekleri.",
 };
 
 interface Paket {
@@ -15,7 +15,7 @@ interface Paket {
   ad: string;
   fiyat: string;
   vurgu?: boolean;
-  icon: typeof Star;
+  icon: typeof Crown;
   aciklama: string;
   ozellikler: string[];
 }
@@ -23,46 +23,44 @@ interface Paket {
 const paketler: Paket[] = [
   {
     slug: "baslangic",
-    ad: "Başlangıç",
-    fiyat: "₺1.490",
-    icon: Camera,
-    aciklama: "Küçük ve samimi etkinlikler için.",
+    ad: "An",
+    fiyat: "₺690",
+    icon: QrCode,
+    aciklama: "Anılarınızı dijitalde toplamanın en sade yolu.",
     ozellikler: [
+      "Kişiye özel dijital oda",
+      "Karekod (QR) ile anında erişim",
+      "Fotoğraf & video yükleme linki",
       "Sınırsız misafir",
-      "300 fotoğraf & video",
-      "Sesli & yazılı anı defteri",
-      "QR kod baskı şablonları",
       "30 gün boyunca indirme",
     ],
   },
   {
     slug: "standart",
-    ad: "Standart",
-    fiyat: "₺2.490",
+    ad: "Anı",
+    fiyat: "₺1.290",
     vurgu: true,
-    icon: Star,
+    icon: Gift,
     aciklama: "En çok tercih edilen — düğünler için ideal.",
     ozellikler: [
-      "Başlangıç'taki her şey",
+      "An'daki her şey",
+      "Basılı QR kod — adresinize kargo",
+      "Dijital davetiye hediye (₺790 değerinde)",
       "Sınırsız fotoğraf & video",
-      "Canlı düğün slaytı (salon ekranı)",
-      "Showroom vitrini",
-      "Toplu (ZIP) indirme",
       "90 gün boyunca indirme",
     ],
   },
   {
     slug: "premium",
-    ad: "Premium",
-    fiyat: "₺4.990",
+    ad: "Sonsuz Anı",
+    fiyat: "₺1.990",
     icon: Crown,
-    aciklama: "Kusursuz ve ömürlük deneyim.",
+    aciklama: "Tüm anılarınız sonsuza dek elinizde.",
     ozellikler: [
-      "Standart'taki her şey",
-      "AI özet video (highlight)",
-      "Ömür boyu arşiv",
-      "Çoklu dil desteği",
-      "Özel marka & logo",
+      "Anı'daki her şey",
+      "Tüm fotoğraf & videolar flash bellekte",
+      "Şık hediye kutusu + kargo ile teslim",
+      "Ömür boyu bulut arşivi",
       "Öncelikli destek",
     ],
   },

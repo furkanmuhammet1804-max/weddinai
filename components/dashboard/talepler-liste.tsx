@@ -20,9 +20,9 @@ interface Talep {
 }
 
 const PAKET_AD: Record<string, string> = {
-  baslangic: "Başlangıç",
-  standart: "Standart",
-  premium: "Premium",
+  baslangic: "An",
+  standart: "Anı",
+  premium: "Sonsuz Anı",
 };
 
 const DURUMLAR: { deger: string; etiket: string; sinif: string }[] = [

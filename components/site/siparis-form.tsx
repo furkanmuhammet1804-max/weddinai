@@ -8,9 +8,9 @@ import { SiteNav } from "@/components/site/site-nav";
 import { SiteFooter } from "@/components/site/site-footer";
 
 const PAKETLER: Record<string, { ad: string; fiyat: string }> = {
-  baslangic: { ad: "Başlangıç", fiyat: "₺1.490" },
-  standart: { ad: "Standart", fiyat: "₺2.490" },
-  premium: { ad: "Premium", fiyat: "₺4.990" },
+  baslangic: { ad: "An", fiyat: "₺690" },
+  standart: { ad: "Anı", fiyat: "₺1.290" },
+  premium: { ad: "Sonsuz Anı", fiyat: "₺1.990" },
 };
 
 const TURLER = [
