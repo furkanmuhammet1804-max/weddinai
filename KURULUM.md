@@ -40,16 +40,21 @@ Copy-Item .env.local.example .env.local
 
 ### AI özellikleri için (Faz 0+)
 
-AI Davetiye Asistanı ve AI işlem geçmişi için Anthropic API anahtarı gerekir.
-`.env.local` (ve Vercel ortam değişkenleri) içine ekleyin:
+AI Davetiye Asistanı ve AI işlem geçmişi için Google **Gemini** API anahtarı
+gerekir. `.env.local` (ve Vercel ortam değişkenleri) içine ekleyin:
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
+GEMINI_API_KEY=...
+# Opsiyonel — sağlayıcı seçimi (varsayılan: gemini)
+AI_PROVIDER=gemini
 ```
 
-Anahtarı https://console.anthropic.com adresinden alabilirsiniz. Anahtar
-tanımlı değilse AI uçları "servis yanıt veremedi" hatası döner; site geri
-kalanı normal çalışır.
+Anahtarı https://aistudio.google.com/apikey adresinden alabilirsiniz.
+Varsayılan model `gemini-2.5-flash`'tır. Anahtar tanımlı değilse AI uçları
+"servis yanıt veremedi" hatası döner; site geri kalanı normal çalışır.
+
+> AI sağlayıcısı `lib/ai/provider.ts` üzerinden seçilir; yeni bir sağlayıcı
+> eklemek için `lib/ai/providers/<ad>.ts` yazıp seçiciye ekleyin.
 
 ## 4. Migration'ı uygulayın
 

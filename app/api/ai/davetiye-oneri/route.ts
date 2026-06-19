@@ -2,11 +2,11 @@
 // POST /api/ai/davetiye-oneri  —  AI Davetiye Asistanı (Faz 1)
 //
 // Public rota: çiftin sipariş ekranındaki "✨ AI ile Yardım Al" modali çağırır.
-// Akış: IP rate-limit (Faz 0) → prompt → Anthropic (structured JSON) → log.
+// Akış: IP rate-limit (Faz 0) → prompt → AI sağlayıcı (Gemini) → log.
 // Para harcayan public bir uç olduğundan IP başına hız limiti uygulanır.
 // =============================================================
 import { NextResponse } from "next/server";
-import { metinUret } from "@/lib/ai/anthropic";
+import { metinUret, VARSAYILAN_MODEL } from "@/lib/ai/provider";
 import { davetiyeOneriPrompt } from "@/lib/ai/prompts";
 import { aiLogKaydet } from "@/lib/ai/logger";
 import { rateLimitKontrol, istekIp } from "@/lib/ai/rate-limit";
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     const mesaj = err instanceof Error ? err.message : "Bilinmeyen hata";
     await aiLogKaydet({
       islemTip: ISLEM,
-      model: "claude-opus-4-8",
+      model: VARSAYILAN_MODEL,
       basari: false,
       hata: mesaj,
       girdiOzet: { gelin: gelin_ad, damat: damat_ad, tema },

@@ -1,7 +1,10 @@
 // =============================================================
 // AI maliyet hesabı (Faz 0).
-// Anthropic fiyatları 1.000.000 token başına USD cinsindendir.
-// Kaynak: platform.claude.com fiyatlandırma (Opus 4.8: $5 girdi / $25 çıktı).
+// Fiyatlar 1.000.000 token başına USD cinsindendir.
+// Kaynak: Google Gemini API fiyatlandırması (yaklaşık; teşhis amaçlı).
+//   gemini-2.5-flash:      $0.30 girdi / $2.50 çıktı
+//   gemini-2.5-flash-lite: $0.10 girdi / $0.40 çıktı
+//   gemini-2.5-pro:        $1.25 girdi / $10.00 çıktı
 // =============================================================
 
 interface ModelFiyat {
@@ -10,15 +13,13 @@ interface ModelFiyat {
 }
 
 const MODEL_FIYAT: Record<string, ModelFiyat> = {
-  "claude-opus-4-8": { input: 5, output: 25 },
-  "claude-opus-4-7": { input: 5, output: 25 },
-  "claude-sonnet-4-6": { input: 3, output: 15 },
-  "claude-haiku-4-5": { input: 1, output: 5 },
+  "gemini-2.5-flash": { input: 0.3, output: 2.5 },
+  "gemini-2.5-flash-lite": { input: 0.1, output: 0.4 },
+  "gemini-2.5-pro": { input: 1.25, output: 10 },
 };
 
-// Bilinmeyen modelde Opus 4.8 fiyatını taban alır (maliyeti olduğundan az
-// göstermemek için en yüksek Opus tarifesi).
-const VARSAYILAN_FIYAT: ModelFiyat = MODEL_FIYAT["claude-opus-4-8"];
+// Bilinmeyen modelde aktif varsayılan (Flash) tarifesini taban alır.
+const VARSAYILAN_FIYAT: ModelFiyat = MODEL_FIYAT["gemini-2.5-flash"];
 
 // Verilen model + token sayılarına göre tahmini USD maliyet.
 export function maliyetHesapla(

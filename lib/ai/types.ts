@@ -6,7 +6,7 @@
 // Şu an tek AI işlemi var; yeni asistanlar eklendikçe burası büyür.
 export type AiIslemTip = "davetiye-oneri";
 
-// Anthropic mesaj yanıtındaki token kullanımı (bizim sadeleştirilmiş halimiz).
+// AI yanıtındaki token kullanımı (sağlayıcıdan bağımsız sadeleştirilmiş hal).
 export interface AiKullanim {
   inputToken: number;
   outputToken: number;
