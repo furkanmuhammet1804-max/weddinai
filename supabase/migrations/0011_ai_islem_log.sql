@@ -13,11 +13,14 @@
 --
 -- Public AI rotaları service_role ile yazar; anon'a tablo erişimi YOKTUR
 -- (RLS açık, public policy yok → service_role bypass eder).
+--
+-- NOT: Bu betik IDEMPOTENT'tir — Supabase SQL Editor'a güvenle (birden çok kez)
+-- yapıştırılabilir; "already exists" hatası vermez.
 -- =============================================================
 
 create extension if not exists pgcrypto;
 
-create table public.ai_islem_log (
+create table if not exists public.ai_islem_log (
   id            uuid primary key default gen_random_uuid(),
   islem_tip     text not null,                  -- 'davetiye-oneri' vb.
   model         text not null,
@@ -34,10 +37,10 @@ create table public.ai_islem_log (
 );
 
 -- Geçmiş ekranı: en yeni önce.
-create index idx_ai_log_created on public.ai_islem_log (created_at desc);
+create index if not exists idx_ai_log_created on public.ai_islem_log (created_at desc);
 -- Rate-limit: IP + işlem türü + zaman penceresi.
-create index idx_ai_log_ip on public.ai_islem_log (ip, islem_tip, created_at desc);
-create index idx_ai_log_tip on public.ai_islem_log (islem_tip);
+create index if not exists idx_ai_log_ip on public.ai_islem_log (ip, islem_tip, created_at desc);
+create index if not exists idx_ai_log_tip on public.ai_islem_log (islem_tip);
 
 alter table public.ai_islem_log enable row level security;
 
@@ -46,5 +49,6 @@ grant all on public.ai_islem_log to service_role;
 -- admin paneli pratikte service_role ile okur).
 grant select on public.ai_islem_log to authenticated;
 
+drop policy if exists "Yetkili ai log okur" on public.ai_islem_log;
 create policy "Yetkili ai log okur"
   on public.ai_islem_log for select to authenticated using (true);
