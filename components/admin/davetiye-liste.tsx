@@ -14,6 +14,7 @@ import {
   CalendarHeart,
   Copy,
   Palette,
+  Trash2,
 } from "lucide-react";
 import type { Davetiye } from "@/lib/davetiye";
 import { temaBul } from "@/lib/davetiye-tema";
@@ -85,6 +86,7 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
   const [kaydediyor, setKaydediyor] = useState(false);
   const [mesaj, setMesaj] = useState<string | null>(null);
   const [manuelUrl, setManuelUrl] = useState<string | null>(null);
+  const [siliniyor, setSiliniyor] = useState(false);
 
   async function gonder(body: Record<string, unknown>): Promise<{ ok: boolean; slug?: string; hata?: string }> {
     setKaydediyor(true);
@@ -146,6 +148,28 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
     setManuelUrl(ok ? null : url);
   }
 
+  // Davetiyeyi kalıcı sil — yanlışlıkla silmeyi önlemek için "SİL" yazma onayı.
+  async function sil() {
+    if (siliniyor || kaydediyor) return;
+    const onay = window.prompt(
+      `"${d.gelin_ad} & ${d.damat_ad}" davetiyesini ve tüm fotoğraf/müzik dosyalarını kalıcı olarak silmek üzeresiniz. Bu işlem geri ALINAMAZ.\n\nOnaylamak için SİL yazın:`,
+    );
+    if ((onay ?? "").trim().toLocaleUpperCase("tr") !== "SİL") return;
+    setSiliniyor(true);
+    try {
+      const res = await fetch("/api/admin/davetiye-sil", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: d.id }),
+      });
+      if (!res.ok) throw new Error();
+      router.refresh();
+    } catch {
+      setSiliniyor(false);
+      window.alert("Davetiye silinemedi. Lütfen tekrar deneyin.");
+    }
+  }
+
   const rozet = DURUMLAR.find((x) => x.id === durum) ?? DURUMLAR[0];
   const etkinlikler = Array.isArray(d.etkinlikler) ? d.etkinlikler : [];
   const yayinda = durum === "yayinda";
@@ -177,6 +201,16 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
           >
             {DURUMLAR.map((x) => <option key={x.id} value={x.id}>{x.etiket}</option>)}
           </select>
+          <button
+            type="button"
+            onClick={sil}
+            disabled={siliniyor || kaydediyor}
+            title="Davetiyeyi sil"
+            aria-label="Davetiyeyi sil"
+            className="inline-flex items-center justify-center rounded-xl border border-border px-2.5 py-2 text-muted-foreground transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          >
+            {siliniyor ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          </button>
         </div>
       </div>
 

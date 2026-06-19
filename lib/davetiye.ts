@@ -235,6 +235,29 @@ export async function davetiyeSlugBelirle(
   return error ? { ok: false, hata: "Kaydedilemedi." } : { ok: true, slug };
 }
 
+// Davetiyeyi TAMAMEN sil: depolama dosyaları + RSVP kayıtları + DB kaydı.
+// (oda-sil ile aynı desen: storage temizliği başarısız olsa da DB silmeye devam.)
+export async function davetiyeSil(id: string): Promise<boolean> {
+  const admin = createAdminClient();
+
+  // Depolama temizliği — bu davetiyenin klasörü (gelin/damat foto, galeri, müzik).
+  try {
+    const { data: objs } = await admin.storage.from(BUCKET).list(id, { limit: 1000 });
+    if (objs && objs.length > 0) {
+      await admin.storage.from(BUCKET).remove(objs.map((o) => `${id}/${o.name}`));
+    }
+  } catch {
+    /* depolama temizliği başarısız olsa da DB silmeye devam */
+  }
+
+  // İlişkili RSVP'ler (FK cascade garanti değil → açıkça sil).
+  await admin.from("davetiye_rsvp").delete().eq("davetiye_id", id);
+
+  const { error } = await admin.from("davetiyeler").delete().eq("id", id);
+  if (error) console.error("[davetiye] sil hata", error.message);
+  return !error;
+}
+
 export async function rsvpEkle(
   davetiyeId: string,
   ad: string,
