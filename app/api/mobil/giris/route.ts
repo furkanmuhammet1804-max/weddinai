@@ -3,8 +3,26 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mobilTokenUret } from "@/lib/mobil/token";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
+
+// Brute-force eşikleri: IP başına 10/dk, IP×oda başına 5/dk (bir odayı
+// hedefli kırmayı yavaşlatır). bcrypt'in yavaşlığıyla birlikte ilk savunma.
+const PENCERE_MS = 60_000;
+const IP_LIMIT = 10;
+const KOMBO_LIMIT = 5;
+
+function asimYaniti(kalanSn: number) {
+  return NextResponse.json(
+    { hata: "Çok fazla deneme yapıldı. Lütfen biraz sonra tekrar deneyin." },
+    { status: 429, headers: { "Retry-After": String(kalanSn) } },
+  );
+}
 
 export async function POST(request: Request) {
+  const ip = istemciIp(request);
+  const ipKontrol = rateLimit(`giris:ip:${ip}`, IP_LIMIT, PENCERE_MS);
+  if (!ipKontrol.izin) return asimYaniti(ipKontrol.kalanSn);
+
   let body: { kod?: string; sifre?: string };
   try {
     body = await request.json();
@@ -20,6 +38,14 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  // Hedefli (tek odaya) brute-force için daha sıkı kombo limiti.
+  const komboKontrol = rateLimit(
+    `giris:kod:${ip}:${kod.toLowerCase()}`,
+    KOMBO_LIMIT,
+    PENCERE_MS,
+  );
+  if (!komboKontrol.izin) return asimYaniti(komboKontrol.kalanSn);
 
   const admin = createAdminClient();
   const { data, error } = await admin.rpc("oda_dogrula", {
