@@ -15,6 +15,7 @@ import {
   Trash2,
   MapPin,
   Music,
+  Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Etkinlik } from "@/lib/davetiye";
@@ -25,6 +26,7 @@ import {
   type DavetiyeTemaId,
 } from "@/lib/davetiye-tema";
 import { CiftIsim } from "@/components/davetiye/cift-isim";
+import { AiYardimModal } from "@/components/davetiye/ai-yardim-modal";
 
 const MAKS_FOTO = 12;
 const MAKS_BAYT = 25 * 1024 * 1024; // 25 MB
@@ -64,6 +66,16 @@ export function DavetiyeSiparis() {
   const [durum, setDurum] = useState<"form" | "gonderiliyor" | "tamam">("form");
   const [asama, setAsama] = useState("");
   const [hata, setHata] = useState<string | null>(null);
+  const [aiAcik, setAiAcik] = useState(false);
+
+  // AI önerisini "Özel istekler" notuna aktarır (varsa mevcut metnin altına ekler).
+  function notaAktar(metin: string) {
+    setForm((f) => {
+      const mevcut = (f.notlar ?? "").trim();
+      return { ...f, notlar: mevcut ? `${mevcut}\n\n${metin}` : metin };
+    });
+    setAiAcik(false);
+  }
 
   const set = (k: string) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -455,6 +467,30 @@ export function DavetiyeSiparis() {
           baslik="Aklınızdaki her şey"
           aciklama="Tasarım, renk tercihi, davetiye mesajı… bize anlatın, hayata geçirelim."
         >
+          <div className="mb-5 overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary-soft/50 via-card to-card p-5 sm:p-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                  <Sparkles className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Davet metni için ilham mı lazım?
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Yapay zekâ, isimlerinize özel 3 öneri hazırlasın.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiAcik(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-elegant transition-all hover:brightness-110"
+              >
+                <Sparkles className="h-4 w-4" /> AI ile Yardım Al
+              </button>
+            </div>
+          </div>
           <Alan label="Özel istekleriniz">
             <textarea className={`${inp} min-h-28 resize-y`} value={form.notlar ?? ""} onChange={set("notlar")} placeholder="Eklemek istedikleriniz…" />
           </Alan>
@@ -481,6 +517,17 @@ export function DavetiyeSiparis() {
           </p>
         </div>
       </form>
+
+      {aiAcik && (
+        <AiYardimModal
+          gelin={form.gelin_ad ?? ""}
+          damat={form.damat_ad ?? ""}
+          tema={tema}
+          tarih={trTarih(dugun.tarih) ?? trTarih(kina.tarih)}
+          onAktar={notaAktar}
+          onClose={() => setAiAcik(false)}
+        />
+      )}
     </div>
   );
 }

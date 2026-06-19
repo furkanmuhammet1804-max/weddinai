@@ -38,6 +38,19 @@ Studio URL: http://127.0.0.1:54323
 Copy-Item .env.local.example .env.local
 ```
 
+### AI özellikleri için (Faz 0+)
+
+AI Davetiye Asistanı ve AI işlem geçmişi için Anthropic API anahtarı gerekir.
+`.env.local` (ve Vercel ortam değişkenleri) içine ekleyin:
+
+```
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Anahtarı https://console.anthropic.com adresinden alabilirsiniz. Anahtar
+tanımlı değilse AI uçları "servis yanıt veremedi" hatası döner; site geri
+kalanı normal çalışır.
+
 ## 4. Migration'ı uygulayın
 
 `supabase start` zaten `supabase/migrations/0001_init.sql` dosyasını otomatik uygular.

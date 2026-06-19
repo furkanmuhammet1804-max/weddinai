@@ -11,6 +11,7 @@ import {
   Inbox,
   BarChart3,
   Heart,
+  Sparkles,
   Menu,
   X,
   LogOut,
@@ -25,6 +26,7 @@ const menu = [
   { href: "/admin/onaylar", label: "Showroom Onayları", icon: CheckCircle2 },
   { href: "/admin/talepler", label: "Talepler", icon: Inbox },
   { href: "/admin/davetiye", label: "Davetiye Talepleri", icon: Heart },
+  { href: "/admin/ai-gecmis", label: "AI İşlem Geçmişi", icon: Sparkles },
   { href: "/admin/istatistik", label: "İstatistik", icon: BarChart3 },
 ];
 
