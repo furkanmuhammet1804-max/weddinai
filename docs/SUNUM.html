@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WeddinAI — Premium AI Özellikleri Sunumu</title>
+<style>
+  :root{
+    --gold:#b8860b; --gold2:#d4af37; --ink:#1c1917; --mut:#78716c;
+    --soft:#faf7f2; --line:#e7e2d9; --rose:#b76e79; --em:#0f766e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:var(--ink);background:#efe9df}
+  .slide{
+    width:1122px;min-height:793px;margin:24px auto;background:#fff;
+    padding:64px 72px;position:relative;overflow:hidden;
+    box-shadow:0 10px 40px rgba(0,0,0,.12);border-radius:14px;
+  }
+  .kicker{font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold);font-weight:700}
+  h1{font-size:54px;line-height:1.05;margin:14px 0 0;letter-spacing:-.5px}
+  h2{font-size:34px;margin:6px 0 22px;letter-spacing:-.3px}
+  .grad{background:linear-gradient(90deg,var(--gold),var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  p{font-size:17px;line-height:1.6;color:#3a3530}
+  .mut{color:var(--mut)}
+  .cover{display:flex;flex-direction:column;justify-content:center;background:
+     radial-gradient(1200px 400px at 80% -10%,#fbf3e0,transparent),#fffdf9}
+  .badge{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:13px;color:var(--mut);margin-top:26px}
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  .card{border:1px solid var(--line);border-radius:14px;padding:22px 24px;background:var(--soft)}
+  .card h3{margin:0 0 8px;font-size:20px}
+  .card p{font-size:14.5px;margin:0;color:#4a443e}
+  .num{font-size:13px;font-weight:700;color:var(--gold);letter-spacing:.1em}
+  .pill{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:4px 11px;margin:2px 4px 2px 0}
+  .ok{background:#dcfce7;color:#15803d}
+  .sec{background:#e0f2fe;color:#075985}
+  .warn{background:#fef3c7;color:#92400e}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin-top:8px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut)}
+  .foot{position:absolute;bottom:26px;left:72px;right:72px;display:flex;justify-content:space-between;font-size:12px;color:var(--mut);border-top:1px solid var(--line);padding-top:12px}
+  .big{font-size:46px;font-weight:800;line-height:1}
+  .statline{display:flex;gap:40px;margin-top:18px}
+  code{background:#f4efe6;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:13px}
+  ul{margin:6px 0 0;padding-left:20px} li{font-size:15px;line-height:1.7;color:#3a3530}
+  @media print{
+    body{background:#fff}
+    .slide{box-shadow:none;border-radius:0;margin:0;page-break-after:always;width:100%;min-height:100vh}
+  }
+</style>
+</head>
+<body>
+
+<!-- KAPAK -->
+<section class="slide cover">
+  <div class="kicker">WeddinAI · Premium AI Platformu</div>
+  <h1>Düğününüzü <span class="grad">yapay zekâ</span> ile<br/>ölümsüzleştiren platform</h1>
+  <p class="mut" style="font-size:19px;max-width:680px;margin-top:18px">
+    Tebrik mesajından dijital albüme; misafir anılarını premium bir deneyime
+    dönüştüren 5 yapay zekâ özelliği. Güvenlik varsayılan olarak etkin.
+  </p>
+  <div>
+    <span class="badge">F1 Tebrik</span>
+    <span class="badge">F2 Davetiye Notu</span>
+    <span class="badge">F3 Hatıra Defteri</span>
+    <span class="badge">F4 Medya Merkezi</span>
+    <span class="badge">F5 Dijital Albüm</span>
+  </div>
+  <div class="statline">
+    <div><div class="big grad">5/5</div><div class="mut">özellik tamam</div></div>
+    <div><div class="big grad">48</div><div class="mut">yeni dosya</div></div>
+    <div><div class="big grad">3</div><div class="mut">migration</div></div>
+    <div><div class="big grad">EXIT 0</div><div class="mut">build</div></div>
+  </div>
+  <div class="foot"><span>WeddinAI</span><span>Gemini 2.5 Flash · Next.js 16 · Supabase</span></div>
+</section>
+
+<!-- GENEL BAKIŞ -->
+<section class="slide">
+  <div class="kicker">Genel Bakış</div>
+  <h2>Beş özellik, tek akış: <span class="grad">anıyı esere çevir</span></h2>
+  <div class="grid g3">
+    <div class="card"><div class="num">F1</div><h3>AI Tebrik Mesajı</h3><p>Misafir; kısa, samimi, duygusal, resmî veya komik tonda tebrik önerisi alır, tek tıkla mesaja aktarır.</p></div>
+    <div class="card"><div class="num">F2</div><h3>AI Davetiye Notu</h3><p>Çift; talep formunda çift hikâyesi, davetiye açıklaması veya tasarım notu için öneri alır.</p></div>
+    <div class="card"><div class="num">F3</div><h3>Dijital Hatıra Defteri</h3><p>Admin, misafir mesajlarından AI taslak üretir, düzenler ve yayınlar. İçerik şifreli saklanır.</p></div>
+    <div class="card"><div class="num">F4</div><h3>AI Medya Merkezi</h3><p>Fotoğrafları kategoriye ayırır; bulanık/karanlık/yinelenen kareleri bulur. KVKK onaylı.</p></div>
+    <div class="card"><div class="num">F5</div><h3>AI Dijital Albüm</h3><p>En iyi kareleri AI seçer; admin sürükle-bırak düzenler, yayınlar. Web + link + PDF.</p></div>
+    <div class="card" style="background:linear-gradient(135deg,#fbf3e0,#fff)"><div class="num">SONUÇ</div><h3>Uçtan uca</h3><p>Hepsi admin paneli, web ve mobil BFF ile kablolu; build doğrulanmış.</p></div>
+  </div>
+  <div class="foot"><span>WeddinAI · Genel Bakış</span><span>2 / 7</span></div>
+</section>
+
+<!-- F1 F2 -->
+<section class="slide">
+  <div class="kicker">Özellik 1 &amp; 2 · Metin Asistanları</div>
+  <h2>Doğru kelimeyi <span class="grad">AI bulsun</span></h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>F1 — AI Tebrik Mesajı</h3>
+      <p>Misafirin "Anı Bırak" ekranında <b>✨ AI ile yardım al</b>. Tonlar: Kısa · Samimi · Duygusal · Resmî · Komik. 3 öneri, tek tıkla mesaja aktarılır.</p>
+      <p style="margin-top:10px"><span class="pill ok">Public uç</span><span class="pill sec">Zod + rate-limit</span><span class="pill sec">PII-siz log</span></p>
+    </div>
+    <div class="card">
+      <h3>F2 — AI Davetiye Notu</h3>
+      <p>Davetiye talep formunda <b>Notunuz için AI'dan yardım alın</b>. Kategoriler: çift hikâyesi · davetiye açıklaması · tasarım isteği.</p>
+      <p style="margin-top:10px"><span class="pill ok">Public uç</span><span class="pill sec">Zod + rate-limit</span><span class="pill sec">Telefon/e-posta AI'ya gitmez</span></p>
+    </div>
+  </div>
+  <p style="margin-top:22px" class="mut">Mimari: ortak <code>lib/ai/oneri-calistir.ts</code> + yeniden kullanılabilir <code>AiOneriModal</code>. Sağlayıcı: Gemini 2.5 Flash (SDK'sız REST).</p>
+  <div class="foot"><span>WeddinAI · Metin Asistanları</span><span>3 / 7</span></div>
+</section>
+
+<!-- F3 -->
+<section class="slide">
+  <div class="kicker">Özellik 3 · Premium</div>
+  <h2>Dijital Hatıra Defteri</h2>
+  <p>Misafirlerin bıraktığı mesajlar, yapay zekâ ile akıcı bir hatıra metnine dönüşür. <b>Yalnızca admin</b> üretir, düzenler ve yayınlar — otomatik yayın yoktur.</p>
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><h3>Üret</h3><p>Guestbook mesajlarından AI taslak. Foto/video AI'ya gönderilmez (metin tabanlı).</p></div>
+    <div class="card"><h3>Düzenle &amp; Yayınla</h3><p>Admin metni düzenler, yayınlar. İçerik <b>AES-256-GCM</b> ile şifreli saklanır.</p></div>
+    <div class="card"><h3>Görüntüle</h3><p>Public <code>/hatira/[slug]</code> + "PDF olarak kaydet" + mobil BFF (salt-okunur).</p></div>
+  </div>
+  <p style="margin-top:20px"><span class="pill ok">Admin-only</span><span class="pill sec">AES-256 şifreli</span><span class="pill warn">Migration 0012</span><span class="pill sec">noindex gizlilik</span></p>
+  <div class="foot"><span>WeddinAI · Hatıra Defteri</span><span>4 / 7</span></div>
+</section>
+
+<!-- F4 -->
+<section class="slide">
+  <div class="kicker">Özellik 4 · Akıllı Medya</div>
+  <h2>AI Medya Merkezi</h2>
+  <p>Binlerce fotoğrafı saniyeler içinde düzenleyin. Kategori için Gemini Vision, kalite tespiti için cihaz-içi (sunucu) analiz.</p>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3>Kategori (Gemini Vision)</h3>
+      <p>gelin_damat · aile · arkadaş · grup · sahne · nikah · kına · düğün. <b>Yalnızca KVKK onayı varsa</b> foto AI'ya gider; küçültülerek (512px).</p>
+    </div>
+    <div class="card">
+      <h3>Kalite (lokal · sharp)</h3>
+      <p>Bulanık · karanlık · yinelenen · benzer tespiti tamamen sunucuda. Foto dışarı çıkmaz. Admin tüm sınıflandırmaları değiştirebilir.</p>
+    </div>
+  </div>
+  <p style="margin-top:20px"><span class="pill ok">Admin-only</span><span class="pill warn">KVKK onayı zorunlu</span><span class="pill sec">sharp lokal</span><span class="pill warn">Migration 0013</span></p>
+  <div class="foot"><span>WeddinAI · Medya Merkezi</span><span>5 / 7</span></div>
+</section>
+
+<!-- F5 -->
+<section class="slide">
+  <div class="kicker">Özellik 5 · Şaheser</div>
+  <h2>AI Dijital Düğün Albümü</h2>
+  <p>En iyi kareleri yapay zekâ seçer; siz hikâyeyi kurarsınız. <b>Yalnızca admin</b> butona basınca çalışır.</p>
+  <div class="grid g3" style="margin-top:14px">
+    <div class="card"><h3>AI Seçim</h3><p>Kalite skoru + tekrar eleme + kategori dengesi. Hikâye akışına göre bölümler.</p></div>
+    <div class="card"><h3>Paketler</h3><p>Başlangıç 50 · Premium 100 · VIP 200 · Özel (admin adedi).</p></div>
+    <div class="card"><h3>Admin Editör</h3><p>Sürükle-bırak sıralama, kapak seçimi, bölüm düzenleme, yayınlama.</p></div>
+  </div>
+  <p style="margin-top:16px">Yayın: public <code>/album/[slug]</code> (bölümlü galeri) · paylaşım linki · "PDF olarak kaydet" · mobil BFF (salt-okunur).</p>
+  <p style="margin-top:8px"><span class="pill ok">Admin-only</span><span class="pill sec">F4 verisine dayanır</span><span class="pill warn">Migration 0014</span></p>
+  <div class="foot"><span>WeddinAI · Dijital Albüm</span><span>6 / 7</span></div>
+</section>
+
+<!-- GÜVENLİK + DEPLOY -->
+<section class="slide">
+  <div class="kicker">Güvenlik &amp; Devreye Alma</div>
+  <h2>Güvenlik <span class="grad">varsayılan etkin</span></h2>
+  <div class="grid g2">
+    <div>
+      <ul>
+        <li><b>Şifreleme:</b> hassas içerik AES-256-GCM (anahtar yalnız env).</li>
+        <li><b>API:</b> her uçta Zod + rate-limit + yetki kontrolü.</li>
+        <li><b>KVKK:</b> onaysız foto AI'ya gönderilmez.</li>
+        <li><b>Minimum veri:</b> AI'ya telefon/e-posta gitmez; loglar PII-siz.</li>
+        <li><b>Dosya:</b> private bucket + imzalı/süreli URL.</li>
+        <li><b>Sır sızıntısı:</b> client bundle'da anahtar/kripto yok (doğrulandı).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Devreye alma</h3>
+      <p>1. Env: <code>APP_ENCRYPTION_KEY</code>, <code>GEMINI_API_KEY</code>, <code>SUPABASE_SERVICE_ROLE_KEY</code>, <code>NEXT_PUBLIC_SUPABASE_*</code></p>
+      <p style="margin-top:8px">2. Migration: <code>0012 → 0013 → 0014</code> (rollback betikleri hazır)</p>
+      <p style="margin-top:8px">3. <code>next build</code> → <b>EXIT 0</b></p>
+      <h3 style="margin-top:18px">Durum</h3>
+      <p><span class="pill ok">5/5 özellik build-doğrulandı</span> <span class="pill sec">commit: feat/ai-ozellikler-f1-f5</span></p>
+      <p style="margin-top:8px" class="mut">Not: mobil ekranlar ayrı repoda (BFF uçları hazır). Canlı DB/Gemini runtime testi devreye alımda yapılmalı.</p>
+    </div>
+  </div>
+  <div class="foot"><span>WeddinAI · Güvenlik &amp; Deploy</span><span>7 / 7</span></div>
+</section>
+
+</body>
+</html>
