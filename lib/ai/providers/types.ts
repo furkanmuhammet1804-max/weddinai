@@ -21,8 +21,24 @@ export interface UretimSonuc extends AiKullanim {
   model: string;
 }
 
+// Görsel sınıflandırma (Özellik 4) — yalnızca KATEGORİ belirleme için.
+// Güvenlik: çağıran taraf foto göndermeden önce KVKK onayını doğrular.
+export interface GorselSiniflaSecenek {
+  imageBase64: string;
+  mimeType: string;
+  kategoriler: string[]; // izin verilen kategori değerleri
+  model?: string;
+}
+
+export interface GorselSiniflaSonuc extends AiKullanim {
+  kategori: string | null; // listedeki bir değer veya null
+  model: string;
+}
+
 export interface AiSaglayici {
   ad: string; // "gemini" vb.
   varsayilanModel: string;
   metinUret(opts: UretimSecenek): Promise<UretimSonuc>;
+  // Opsiyonel: her sağlayıcı görsel desteklemeyebilir.
+  gorselSinifla?(opts: GorselSiniflaSecenek): Promise<GorselSiniflaSonuc>;
 }

@@ -8,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 const ISLEM_ETIKET: Record<string, string> = {
   "davetiye-oneri": "Davetiye Önerisi",
+  "tebrik-oneri": "Tebrik Mesajı",
+  "davetiye-not": "Davetiye Notu",
+  "hatira-defteri": "Hatıra Defteri",
+  "medya-kategori": "Medya Kategori",
 };
 
 function tarihFormat(iso: string): string {
