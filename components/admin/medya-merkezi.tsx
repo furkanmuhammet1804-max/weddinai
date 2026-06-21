@@ -18,6 +18,7 @@ import {
   User,
   Video as VideoIcon,
   RefreshCw,
+  ImageDown,
 } from "lucide-react";
 import { MEDYA_KATEGORILER, kategoriEtiket } from "@/lib/medya/sabit";
 import type { MedyaFoto, KategoriDurum } from "@/lib/medya/veri";
@@ -130,6 +131,35 @@ export function MedyaMerkezi({
       }
       await partiDongusu();
       window.location.reload();
+    } catch (err) {
+      setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
+      setCalisiyor(false);
+    }
+  }
+
+  // Eski fotoğraflar için thumb/medium türevlerini üret (sharp), parti parti.
+  async function thumbnailUret() {
+    if (calisiyor) return;
+    setCalisiyor(true);
+    setHata(null);
+    try {
+      let devam = true;
+      let hicIslendi = false;
+      while (devam) {
+        const res = await fetch("/api/admin/medya/kucuk-backfill", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok)
+          throw new Error(data.hata ?? "Thumbnail üretilemedi.");
+        if ((data.islenen ?? 0) > 0) hicIslendi = true;
+        setIlerleme(`${data.hazir}/${data.toplam} küçük görsel hazır`);
+        if ((data.kalan ?? 0) <= 0 || (data.islenen ?? 0) === 0) devam = false;
+      }
+      bildir(hicIslendi ? "Thumbnail üretimi tamamlandı." : "Tüm görseller zaten hazır.");
+      setCalisiyor(false);
     } catch (err) {
       setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
       setCalisiyor(false);
@@ -260,6 +290,20 @@ export function MedyaMerkezi({
             <RefreshCw className="h-4 w-4" />
           )}
           Mevcut Fotoğrafları Yeniden Tara
+        </button>
+        <button
+          type="button"
+          onClick={thumbnailUret}
+          disabled={calisiyor}
+          title="Eski fotoğraflar için galeri küçük görsellerini (thumb/medium) üret"
+          className="inline-flex items-center gap-2 rounded-full border border-primary/40 px-5 py-2.5 text-sm font-semibold text-primary-deep transition-colors hover:bg-primary-soft/50 disabled:opacity-60"
+        >
+          {calisiyor ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ImageDown className="h-4 w-4" />
+          )}
+          Thumbnail Yeniden Oluştur
         </button>
         <span className="text-sm text-muted-foreground">
           {ilerleme ?? `${durumIlk.kategorilenen}/${durumIlk.toplam} kategorilendi`}

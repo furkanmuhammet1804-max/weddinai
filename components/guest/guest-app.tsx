@@ -332,6 +332,13 @@ function YuklemeAlani({
             body: JSON.stringify({ slug, mediaId: yeniId }),
             keepalive: true,
           }).catch(() => {});
+          // Galeri için thumb/medium türevleri (sharp) — ateşle-unut.
+          void fetch("/api/medya/kucuk-uret", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, mediaId: yeniId }),
+            keepalive: true,
+          }).catch(() => {});
         }
       } catch {
         durumGuncelle(d.id, {

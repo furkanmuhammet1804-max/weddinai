@@ -9,6 +9,7 @@
 // YALNIZCA events.ai_medya_onay = true (KVKK) ise işlenir. Onay yoksa videolar
 // 'video' etiketlenir, fotoğraflar kategorisiz "onay bekliyor" kalır.
 // =============================================================
+import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { yuzTespit } from "@/lib/medya/yuz";
 
@@ -267,6 +268,110 @@ export async function otoKategoriUygula(mediaId: string): Promise<OtoSonuc> {
     })
     .eq("id", mediaId);
   return { ok: true, kategori };
+}
+
+// =============================================================
+// THUMBNAIL PIPELINE (sharp) — thumb 300/webp75 (grid), medium 1200/webp85
+// (lightbox). Original korunur (indirme + PDF). Türev yolları orijinalden türer.
+// =============================================================
+
+// <eventId>/<uuid>.<ext> → <eventId>/<tip>/<uuid>.webp
+export function varyantPath(storagePath: string, tip: "thumb" | "medium"): string {
+  const egik = storagePath.lastIndexOf("/");
+  const dir = egik >= 0 ? storagePath.slice(0, egik) : "";
+  const dosya = egik >= 0 ? storagePath.slice(egik + 1) : storagePath;
+  const nokta = dosya.lastIndexOf(".");
+  const taban = nokta >= 0 ? dosya.slice(0, nokta) : dosya;
+  return dir ? `${dir}/${tip}/${taban}.webp` : `${tip}/${taban}.webp`;
+}
+
+// Tek medya için türev üretir. Video → türev yok, yalnız hazır işaretlenir.
+export async function kucukUret(
+  mediaId: string,
+): Promise<{ ok: boolean; atlandi?: boolean }> {
+  const admin = createAdminClient();
+  const { data: m } = await admin
+    .from("media")
+    .select("id, storage_path, file_type, kucuk_hazir")
+    .eq("id", mediaId)
+    .maybeSingle();
+  if (!m) return { ok: false };
+  if (m.kucuk_hazir) return { ok: true, atlandi: true };
+
+  const simdi = new Date().toISOString();
+  // Video: küçük türev üretilmez (grid <video> kullanır); hazır işaretle.
+  if (m.file_type !== "fotograf") {
+    await admin
+      .from("media")
+      .update({ kucuk_hazir: true, kucuk_hazir_at: simdi })
+      .eq("id", mediaId);
+    return { ok: true, atlandi: true };
+  }
+
+  const buf = await medyaBaytlari(m.storage_path as string);
+  if (!buf) return { ok: false };
+
+  let thumb: Buffer, medium: Buffer;
+  try {
+    thumb = await sharp(buf)
+      .rotate()
+      .resize(300, 300, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 75 })
+      .toBuffer();
+    medium = await sharp(buf)
+      .rotate()
+      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 })
+      .toBuffer();
+  } catch {
+    return { ok: false };
+  }
+
+  const tPath = varyantPath(m.storage_path as string, "thumb");
+  const mPath = varyantPath(m.storage_path as string, "medium");
+  const [t, md] = await Promise.all([
+    admin.storage.from(MEDYA_BUCKET).upload(tPath, thumb, {
+      contentType: "image/webp",
+      upsert: true,
+    }),
+    admin.storage.from(MEDYA_BUCKET).upload(mPath, medium, {
+      contentType: "image/webp",
+      upsert: true,
+    }),
+  ]);
+  if (t.error || md.error) return { ok: false };
+
+  await admin
+    .from("media")
+    .update({ kucuk_hazir: true, kucuk_hazir_at: simdi })
+    .eq("id", mediaId);
+  return { ok: true };
+}
+
+// Backfill: türevi olmayan medyalar (foto + video) — parti parti.
+export async function bekleyenKucukler(eventId: string, limit: number): Promise<string[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("media")
+    .select("id")
+    .eq("event_id", eventId)
+    .eq("kucuk_hazir", false)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  return (data ?? []).map((r) => r.id as string);
+}
+
+export async function kucukDurum(
+  eventId: string,
+): Promise<{ toplam: number; hazir: number; bekleyen: number }> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("media")
+    .select("kucuk_hazir")
+    .eq("event_id", eventId);
+  const rows = data ?? [];
+  const hazir = rows.filter((r) => r.kucuk_hazir).length;
+  return { toplam: rows.length, hazir, bekleyen: rows.length - hazir };
 }
 
 // ---- Admin override ----

@@ -45,7 +45,7 @@ const GOSTER_ADIM = 48;
 function dosyaAdi(m: OdaMedya, i: number): string {
   let ext = m.file_type === "video" ? "mp4" : "jpg";
   try {
-    const p = new URL(m.url ?? "").pathname;
+    const p = new URL((m.orijinalUrl ?? m.url) ?? "").pathname;
     const nokta = p.lastIndexOf(".");
     if (nokta >= 0) {
       const e = p.slice(nokta + 1).toLowerCase();
@@ -245,8 +245,9 @@ export function MusteriPanel({
 
   // ---- İndirme ----
   const tekBlobIndir = useCallback(async (m: OdaMedya, i: number) => {
-    if (!m.url) return;
-    const res = await fetch(m.url);
+    const kaynakUrl = m.orijinalUrl ?? m.url; // indirme HER ZAMAN orijinal
+    if (!kaynakUrl) return;
+    const res = await fetch(kaynakUrl);
     if (!res.ok) throw new Error("indirilemedi");
     blobIndir(await res.blob(), dosyaAdi(m, i));
   }, []);
@@ -869,7 +870,7 @@ function Lightbox({
         {m.url ? (
           m.file_type === "video" ? (
             <video
-              src={m.url}
+              src={m.orijinalUrl ?? m.url}
               controls
               autoPlay
               playsInline
@@ -878,7 +879,7 @@ function Lightbox({
           ) : (
             <motion.img
               key={index}
-              src={m.url}
+              src={m.mediumUrl ?? m.url}
               alt={m.guest_name ?? "Anı"}
               drag={liste.length > 1 ? "x" : false}
               dragConstraints={{ left: 0, right: 0 }}

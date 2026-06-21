@@ -9,6 +9,7 @@
 // Bucket'lar PRIVATE → erişim imzalı URL ile.
 // =============================================================
 import { createAdminClient } from "@/lib/supabase/admin";
+import { varyantPath } from "@/lib/medya/veri";
 
 const MEDYA_BUCKET = "event-media";
 const SES_BUCKET = "event-audio";
@@ -28,7 +29,9 @@ export interface OdaBilgi {
 
 export interface OdaMedya {
   id: string;
-  url: string | null;
+  url: string | null; // grid: thumb (hazırsa) yoksa orijinal (fallback)
+  mediumUrl: string | null; // lightbox: medium (hazırsa) yoksa orijinal
+  orijinalUrl: string | null; // indirme: her zaman orijinal
   file_type: FotoVideo;
   guest_name: string | null;
   showroom_approved: boolean;
@@ -89,18 +92,42 @@ export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
   const { data } = await admin
     .from("media")
     .select(
-      "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, album_aday, status, created_at",
+      "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, album_aday, status, created_at, kucuk_hazir",
     )
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
   const satirlar = data ?? [];
+
+  // Türevi hazır FOTOĞRAFLAR için thumb/medium yolları; gerisi orijinale fallback.
+  const turevliFoto = (m: (typeof satirlar)[number]) =>
+    !!m.kucuk_hazir && m.file_type === "fotograf";
   const harita = await imzaliUrlHaritasi(
     MEDYA_BUCKET,
     satirlar.map((m) => m.storage_path as string),
   );
-  return satirlar.map((m) => ({
+  const thumbHarita = await imzaliUrlHaritasi(
+    MEDYA_BUCKET,
+    satirlar.filter(turevliFoto).map((m) => varyantPath(m.storage_path as string, "thumb")),
+  );
+  const mediumHarita = await imzaliUrlHaritasi(
+    MEDYA_BUCKET,
+    satirlar.filter(turevliFoto).map((m) => varyantPath(m.storage_path as string, "medium")),
+  );
+
+  return satirlar.map((m) => {
+    const sp = m.storage_path as string;
+    const orijinal = harita.get(sp) ?? null;
+    const thumb = turevliFoto(m)
+      ? (thumbHarita.get(varyantPath(sp, "thumb")) ?? orijinal)
+      : orijinal;
+    const medium = turevliFoto(m)
+      ? (mediumHarita.get(varyantPath(sp, "medium")) ?? orijinal)
+      : orijinal;
+    return {
     id: m.id as string,
-    url: harita.get(m.storage_path as string) ?? null,
+    url: thumb,
+    mediumUrl: medium,
+    orijinalUrl: orijinal,
     file_type: m.file_type as FotoVideo,
     guest_name: (m.guest_name as string) ?? null,
     showroom_approved: !!m.showroom_approved,
@@ -109,7 +136,8 @@ export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
     album_aday: !!m.album_aday,
     status: m.status as string,
     created_at: m.created_at as string,
-  }));
+    };
+  });
 }
 
 export async function odaAnilari(eventId: string): Promise<OdaAni[]> {
