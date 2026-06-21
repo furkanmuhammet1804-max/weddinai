@@ -215,12 +215,12 @@ export default function Home() {
                 <span className="text-gradient-gold">unutulmaz</span> kılın
               </h2>
               <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-                Anılar güvende, kontrol sizde. Vitrini keşfedin ya da size verilen
-                oda koduyla kendi etkinliğinize giriş yapın.
+                Anılar güvende, kontrol sizde. Hemen bir etkinlik oluşturun ya da
+                size verilen oda koduyla kendi etkinliğinize giriş yapın.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <ButtonLink href="/showroom" size="lg">
-                  Showroom&apos;u Keşfet
+                <ButtonLink href="/siparis" size="lg">
+                  Bir Etkinlik Oluştur
                 </ButtonLink>
                 <ButtonLink href="/musteri" variant="outline" size="lg">
                   Müşteri Girişi

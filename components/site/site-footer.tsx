@@ -23,7 +23,6 @@ const gruplar: {
   {
     baslik: "Erişim",
     linkler: [
-      { href: "/showroom", label: "Showroom" },
       { href: "/musteri", label: "Müşteri Girişi" },
       { href: "/siparis", label: "Sipariş Ver" },
     ],
