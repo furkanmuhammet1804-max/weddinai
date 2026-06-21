@@ -20,6 +20,7 @@ import {
   GripVertical,
   CheckCircle2,
   Link2,
+  FileDown,
 } from "lucide-react";
 import { BOLUM_DUZEN, paketEtiket } from "@/lib/album/sabit";
 
@@ -248,6 +249,12 @@ export function AlbumEditor({
           {islem === "kaydet" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Kaydet
         </button>
+        <a
+          href={`/api/admin/album/pdf?id=${id}`}
+          className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-foreground/70 transition-colors hover:border-primary hover:text-primary-deep"
+        >
+          <FileDown className="h-4 w-4" /> PDF Oluştur
+        </a>
         <button
           type="button"
           onClick={() => setHavuzAcik((v) => !v)}

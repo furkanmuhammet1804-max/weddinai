@@ -13,6 +13,7 @@ import {
   ExternalLink,
   ArrowLeft,
   CheckCircle2,
+  FileDown,
 } from "lucide-react";
 
 interface Props {
@@ -200,6 +201,13 @@ export function HatiraEditor({
           {islem === "kaydet" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Kaydet
         </button>
+
+        <a
+          href={`/api/admin/hatira/pdf?id=${id}`}
+          className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-foreground/70 transition-colors hover:border-primary hover:text-primary-deep"
+        >
+          <FileDown className="h-4 w-4" /> PDF Oluştur
+        </a>
 
         <button
           type="button"
