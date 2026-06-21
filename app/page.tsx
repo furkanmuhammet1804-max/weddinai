@@ -15,6 +15,7 @@ import {
 import { SiteNav } from "@/components/site/site-nav";
 import { SiteFooter } from "@/components/site/site-footer";
 import { Hero } from "@/components/site/hero";
+import { Istatistikler } from "@/components/site/istatistik";
 import { Reveal } from "@/components/site/reveal";
 import { SSS } from "@/components/site/sss";
 import { ButtonLink } from "@/components/ui/button";
@@ -94,6 +95,9 @@ export default function Home() {
       <SiteNav />
       <main className="flex-1">
         <Hero />
+
+        {/* İSTATİSTİKLER (animasyonlu sayaç) */}
+        <Istatistikler />
 
         {/* ÖZELLİKLER */}
         <section id="ozellikler" className="mx-auto max-w-7xl px-5 py-20 sm:px-8">

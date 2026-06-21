@@ -368,3 +368,26 @@ html {
 body {
   overflow-x: hidden;
 }
+
+/* =============================================================
+   Ana sayfa hero — premium float/bokeh animasyonları (CSS-only).
+   prefers-reduced-motion'da kapanır (erişilebilirlik + performans).
+   ============================================================= */
+@keyframes wai-float {
+  0%, 100% { transform: translateY(0) rotate(var(--wai-rot, 0deg)); }
+  50% { transform: translateY(-14px) rotate(var(--wai-rot, 0deg)); }
+}
+@keyframes wai-float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+@keyframes wai-bokeh {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  50% { transform: translate(18px, -22px) scale(1.08); opacity: 0.9; }
+}
+.wai-float { animation: wai-float 7s ease-in-out infinite; will-change: transform; }
+.wai-float-soft { animation: wai-float-soft 6s ease-in-out infinite; will-change: transform; }
+.wai-bokeh { animation: wai-bokeh 12s ease-in-out infinite; will-change: transform, opacity; }
+@media (prefers-reduced-motion: reduce) {
+  .wai-float, .wai-float-soft, .wai-bokeh { animation: none; }
+}
