@@ -76,6 +76,10 @@ async function metinUret(opts: UretimSecenek): Promise<UretimSonuc> {
     // bütçesini kapatmak hem maliyeti hem de çıktı bütçesi taşma riskini düşürür.
     thinkingConfig: { thinkingBudget: 0 },
   };
+  // Yaratıcılık ayarları (doğallık/çeşitlilik). Verildiyse uygula.
+  if (typeof opts.temperature === "number")
+    generationConfig.temperature = opts.temperature;
+  if (typeof opts.topP === "number") generationConfig.topP = opts.topP;
   if (opts.jsonSema) {
     generationConfig.responseMimeType = "application/json";
     generationConfig.responseSchema = semaCevir(opts.jsonSema);

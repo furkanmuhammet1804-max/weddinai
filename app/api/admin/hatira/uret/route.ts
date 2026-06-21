@@ -53,7 +53,14 @@ export async function POST(request: Request) {
       etkinlikBaslik: bilgi.title,
       mesajlar,
     });
-    const sonuc = await metinUret({ system, user, maxTokens: 2048 });
+    // Yaratıcılık: doğal, klişesiz anlatı için yüksek ama dengeli sıcaklık.
+    const sonuc = await metinUret({
+      system,
+      user,
+      maxTokens: 2048,
+      temperature: 0.95,
+      topP: 0.97,
+    });
     const icerik = sonuc.metin.trim();
     if (!icerik) {
       await aiLogKaydet({

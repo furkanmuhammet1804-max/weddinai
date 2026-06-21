@@ -37,10 +37,17 @@ export interface OneriCalistirSecenek {
   islemTip: AiIslemTip;
   prompt: PromptCikti;
   maxTokens?: number;
+  // Yaratıcılık (doğallık/çeşitlilik). Verilmezse yaratıcı varsayılan kullanılır.
+  temperature?: number;
+  topP?: number;
   // PII-siz log özeti (ad/mesaj/iletişim İÇERMEZ).
   logOzet?: Record<string, unknown>;
   limit?: { limit: number; pencereSn: number };
 }
+
+// Yaratıcı metin uçları için varsayılan yaratıcılık (klişeyi kırar, çeşitlendirir).
+const VARSAYILAN_TEMP = 1.05;
+const VARSAYILAN_TOPP = 0.97;
 
 export async function oneriCalistir(
   request: Request,
@@ -66,6 +73,8 @@ export async function oneriCalistir(
       user: opt.prompt.user,
       jsonSema: opt.prompt.jsonSema,
       maxTokens: opt.maxTokens ?? 1200,
+      temperature: opt.temperature ?? VARSAYILAN_TEMP,
+      topP: opt.topP ?? VARSAYILAN_TOPP,
     });
     const oneriler = onerileriAyikla(sonuc.metin);
 

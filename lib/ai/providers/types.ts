@@ -10,6 +10,10 @@ export interface UretimSecenek {
   user: string;
   model?: string;
   maxTokens?: number;
+  // Yaratıcılık ayarları (doğallık/çeşitlilik için). Verilmezse sağlayıcı
+  // varsayılanı kullanılır. Yaratıcı metinlerde yüksek (≈1.0-1.15) önerilir.
+  temperature?: number;
+  topP?: number;
   // Verilirse yanıt bu JSON şemasına uydurulur (structured output).
   // Şema, sağlayıcıdan bağımsız JSON-Schema alt kümesidir; her sağlayıcı
   // kendi biçimine çevirir.

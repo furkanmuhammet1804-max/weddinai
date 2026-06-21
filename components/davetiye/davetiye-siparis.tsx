@@ -36,6 +36,15 @@ const NOT_KATEGORILER = [
   { deger: "tasarim", etiket: "Tasarım isteği" },
 ];
 
+// Hazır davet metinleri — doğal, klişeden uzak (müşteri tek tıkla seçer).
+const HAZIR_METINLER: string[] = [
+  "Birlikte çıktığımız bu yolda, en sevdiklerimizi yanımızda görmek isteriz.",
+  "Mutluluğumuza ortak olmanız, bu günü bizim için unutulmaz kılacak.",
+  "Kahkahalarımıza ve sevincimize siz de katılın; sizi aramızda görmek isteriz.",
+  "Hayatımızın bu güzel başlangıcında, en yakınlarımızla aynı karede olmak isteriz.",
+  "Yıllar sonra gülümseyerek anacağımız bu güne sizi de bekliyoruz.",
+];
+
 const MAKS_FOTO = 12;
 const MAKS_BAYT = 25 * 1024 * 1024; // 25 MB
 const MUZIK_TUR = [".mp3", ".wav", ".m4a"];
@@ -83,6 +92,13 @@ export function DavetiyeSiparis() {
       const mevcut = (f.notlar ?? "").trim();
       return { ...f, notlar: mevcut ? `${mevcut}\n\n${metin}` : metin };
     });
+    setNotAiAcik(false);
+  }
+
+  // Seçilen/AI/hazır DAVET METNİNİ form.mesaj'a yazar (davetiyede görünen metin).
+  // Replace eder: davet metni tek bir metindir (A/B/C akışlarının hepsi buraya yazar).
+  function mesajaAktar(metin: string) {
+    setForm((f) => ({ ...f, mesaj: metin }));
     setAiAcik(false);
   }
 
@@ -469,12 +485,12 @@ export function DavetiyeSiparis() {
 
         <Ayrac />
 
-        {/* 06 — Notlar */}
+        {/* 07 — Davet Metni (davetiyede GÖRÜNEN metin → form.mesaj) */}
         <Bolum
           no="07"
-          kicker="Son Dokunuş"
-          baslik="Aklınızdaki her şey"
-          aciklama="Tasarım, renk tercihi, davetiye mesajı… bize anlatın, hayata geçirelim."
+          kicker="Davet Sözünüz"
+          baslik="Davetiyede ne yazsın?"
+          aciklama="Misafirlerinizin davetiyede okuyacağı metin. Hazır bir metin seçin, yapay zekâdan ilham alın ya da kendiniz yazın."
         >
           <div className="mb-5 overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary-soft/50 via-card to-card p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -500,6 +516,49 @@ export function DavetiyeSiparis() {
               </button>
             </div>
           </div>
+
+          <Etiket>Hazır metinler</Etiket>
+          <div className="mb-4 mt-2 grid gap-2 sm:grid-cols-2">
+            {HAZIR_METINLER.map((m) => {
+              const secili = (form.mesaj ?? "").trim() === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => mesajaAktar(m)}
+                  className={`rounded-2xl border px-4 py-3 text-left text-sm transition-all ${
+                    secili
+                      ? "border-primary bg-primary-soft/40 ring-2 ring-primary/30"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
+                >
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+
+          <Etiket>Davet metniniz</Etiket>
+          <textarea
+            className={`${inp} mt-2 min-h-28 resize-y`}
+            value={form.mesaj ?? ""}
+            onChange={set("mesaj")}
+            placeholder="Davetiyede görünmesini istediğiniz metni yazın ya da yukarıdan seçin…"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Boş bırakırsanız zarif bir varsayılan metin kullanılır.
+          </p>
+        </Bolum>
+
+        <Ayrac />
+
+        {/* 08 — Notlar (yalnız tasarım ekibine — davetiyede GÖRÜNMEZ) */}
+        <Bolum
+          no="08"
+          kicker="Son Dokunuş"
+          baslik="Tasarım ekibine notunuz"
+          aciklama="Renk tercihi, tarz, özel istekler… Bu not yalnızca ekibimize iletilir, davetiyede görünmez."
+        >
           <div className="mb-2 flex items-center justify-between gap-3">
             <Etiket>Özel istekleriniz</Etiket>
             <button
@@ -541,7 +600,7 @@ export function DavetiyeSiparis() {
           damat={form.damat_ad ?? ""}
           tema={tema}
           tarih={trTarih(dugun.tarih) ?? trTarih(kina.tarih)}
-          onAktar={notaAktar}
+          onAktar={mesajaAktar}
           onClose={() => setAiAcik(false)}
         />
       )}
