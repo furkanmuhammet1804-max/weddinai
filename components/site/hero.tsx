@@ -88,7 +88,7 @@ export function Hero() {
             className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-white/70 px-4 py-1.5 text-xs font-semibold text-primary-deep shadow-sm backdrop-blur"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            WeddinAI · Premium Düğün Anı Platformu
+            WeddinAI · Düğününüzün Dijital Mirası
           </motion.span>
 
           <motion.h1

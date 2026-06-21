@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 // WeddinAI marka kilidi: altın işaret (şeffaf PNG) + kelime markası.
@@ -18,9 +21,21 @@ export function Logo({
   showText?: boolean;
   priority?: boolean;
 }) {
+  const pathname = usePathname();
+
+  // Ana sayfadaysak: yönlendirme yerine pürüzsüz biçimde en üste çık (window top=0).
+  // Başka sayfadaysak: Link "/"'e gider; App Router varsayılan olarak en üste açar.
+  function tikla(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   return (
     <Link
       href="/"
+      onClick={tikla}
       aria-label="WeddinAI ana sayfa"
       className={cn("inline-flex items-center gap-2.5", className)}
     >
