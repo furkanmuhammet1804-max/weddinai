@@ -17,6 +17,14 @@ const TURLER: { deger: string; etiket: string }[] = [
   { deger: "diger", etiket: "Diğer" },
 ];
 
+// Dijital albüm paketi (satış anında verilir). "yok" = albüm hakkı tanımlanmaz.
+const ALBUM_SECENEK: { deger: string; etiket: string }[] = [
+  { deger: "yok", etiket: "Yok" },
+  { deger: "baslangic", etiket: "50 Fotoğraf" },
+  { deger: "premium", etiket: "100 Fotoğraf" },
+  { deger: "vip", etiket: "200 Fotoğraf" },
+];
+
 export function AdminOdaOlustur() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -26,6 +34,7 @@ export function AdminOdaOlustur() {
     tur: "dugun",
     tarih: "",
     sifre: "",
+    dijitalAlbum: "yok",
   });
   const [goster, setGoster] = useState(false);
   const [yukleniyor, setYukleniyor] = useState(false);
@@ -187,6 +196,25 @@ export function AdminOdaOlustur() {
                 {goster ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium">Dijital Albüm</label>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Müşteri albüm hizmeti aldıysa paketi seçin. Seçilirse müşteri
+              panelinde “Dijital Albüm” sekmesi otomatik açılır.
+            </p>
+            <select
+              value={form.dijitalAlbum}
+              onChange={(e) => guncelle("dijitalAlbum", e.target.value)}
+              className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary"
+            >
+              {ALBUM_SECENEK.map((a) => (
+                <option key={a.deger} value={a.deger}>
+                  {a.etiket}
+                </option>
+              ))}
+            </select>
           </div>
 
           {hata && (

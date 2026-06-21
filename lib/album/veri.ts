@@ -394,6 +394,62 @@ export async function albumHakkiVer(
   return { ok: true, token };
 }
 
+// =============================================================
+// F5 V3 — ALBÜM HAKKI (satış anı modeli). Hak oda oluşturmada verilir;
+// talep/onay süreci YOKTUR. Müşteri paneli hak varsa "Dijital Albüm" sekmesi gösterir.
+// =============================================================
+
+export interface AlbumHakBilgi {
+  album_id: string;
+  paket: string;
+  limit_adet: number;
+  secim_token: string | null;
+  secim_tamamlandi: boolean;
+  secili_sayisi: number;
+}
+
+// Müşteri paneli/oda sayfası için: bu odanın albüm hakkı (yoksa null).
+// Hak = secim_token'lı albumler satırının varlığı.
+export async function albumHakDurum(eventId: string): Promise<AlbumHakBilgi | null> {
+  const admin = createAdminClient();
+  const { data: a } = await admin
+    .from("albumler")
+    .select("id, paket, limit_adet, secim_token, secim_tamamlandi")
+    .eq("event_id", eventId)
+    .not("secim_token", "is", null)
+    .maybeSingle();
+  if (!a) return null;
+  const { count } = await admin
+    .from("album_fotograflar")
+    .select("id", { count: "exact", head: true })
+    .eq("album_id", a.id as string);
+  return {
+    album_id: a.id as string,
+    paket: (a.paket as string) ?? "baslangic",
+    limit_adet: (a.limit_adet as number) ?? 50,
+    secim_token: (a.secim_token as string) ?? null,
+    secim_tamamlandi: !!a.secim_tamamlandi,
+    secili_sayisi: count ?? 0,
+  };
+}
+
+// Admin: albümü "teslim edildi" işaretler/geri alır (Albüm Siparişleri).
+export async function albumTeslimEt(
+  albumId: string,
+  teslim: boolean,
+): Promise<{ ok: boolean; hata?: string }> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("albumler")
+    .update({
+      teslim_edildi: teslim,
+      teslim_edildi_at: teslim ? new Date().toISOString() : null,
+    })
+    .eq("id", albumId);
+  if (error) return { ok: false, hata: "Güncellenemedi." };
+  return { ok: true };
+}
+
 // ---- Müşteri seçim ekranı verisi (token ile, yalnız o odanın fotoğrafları) ----
 export interface AlbumSecimVeri {
   album_id: string;
@@ -543,6 +599,7 @@ export interface AlbumSiparisSatir {
   tamamlandi: boolean;
   tamamlandi_at: string | null;
   secim_token: string | null;
+  teslim_edildi: boolean;
 }
 
 export async function albumSiparisListe(): Promise<AlbumSiparisSatir[]> {
@@ -550,7 +607,7 @@ export async function albumSiparisListe(): Promise<AlbumSiparisSatir[]> {
   const { data: albumler } = await admin
     .from("albumler")
     .select(
-      "id, event_id, paket, limit_adet, secim_tamamlandi, secim_tamamlandi_at, secim_token, created_at, events(title, customer_name)",
+      "id, event_id, paket, limit_adet, secim_tamamlandi, secim_tamamlandi_at, secim_token, teslim_edildi, created_at, events(title, customer_name)",
     )
     .not("secim_token", "is", null)
     .order("created_at", { ascending: false });
@@ -579,6 +636,7 @@ export async function albumSiparisListe(): Promise<AlbumSiparisSatir[]> {
       tamamlandi: !!a.secim_tamamlandi,
       tamamlandi_at: (a.secim_tamamlandi_at as string) ?? null,
       secim_token: (a.secim_token as string) ?? null,
+      teslim_edildi: !!a.teslim_edildi,
     };
   });
 }

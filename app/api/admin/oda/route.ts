@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { adminOturumGecerli } from "@/lib/admin/oturum";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugYap, kisaEk } from "@/lib/slug";
+import { albumHakkiVer } from "@/lib/album/veri";
+
+// Oda oluşturmada seçilebilen dijital albüm paketleri ("yok" hariç hak tanımlanır).
+const GECERLI_ALBUM = new Set(["baslangic", "premium", "vip"]);
 
 const GECERLI_TUR = new Set([
   "dugun",
@@ -26,6 +30,7 @@ export async function POST(request: Request) {
     tur?: string;
     tarih?: string;
     sifre?: string;
+    dijitalAlbum?: string;
   };
   try {
     body = await request.json();
@@ -103,6 +108,13 @@ export async function POST(request: Request) {
       { hata: "Oda şifresi ayarlanamadı." },
       { status: 500 },
     );
+  }
+
+  // Satış anı modeli: paket seçildiyse albüm hakkını oda oluşturmada otomatik ver
+  // (token üretilir, müşteri seçim ekranı aktif olur). Hata oda oluşumunu bozmaz.
+  const albumPaket = body.dijitalAlbum ?? "yok";
+  if (GECERLI_ALBUM.has(albumPaket)) {
+    await albumHakkiVer(olusan.id, albumPaket).catch(() => {});
   }
 
   return NextResponse.json({ ok: true, id: olusan.id, slug: olusan.slug });

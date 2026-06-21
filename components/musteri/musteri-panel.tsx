@@ -30,10 +30,13 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { blobIndir, formIleIndir } from "@/lib/indir";
 import { kopyalaVeBildir } from "@/lib/pano";
+import Link from "next/link";
 import type { OdaBilgi, OdaMedya, OdaAni } from "@/lib/oda/veri";
+import type { AlbumHakBilgi } from "@/lib/album/veri";
+import { paketEtiket } from "@/lib/album/sabit";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 
-type Sekme = "anilar" | "defter";
+type Sekme = "anilar" | "defter" | "album";
 
 // Mobilde akıcı kalsın diye medya kartları parça parça (lazy) gösterilir.
 const GOSTER_ADIM = 48;
@@ -64,11 +67,13 @@ export function MusteriPanel({
   bilgi,
   medyalar,
   anilar,
+  albumHak,
 }: {
   slug: string;
   bilgi: OdaBilgi;
   medyalar: OdaMedya[];
   anilar: OdaAni[];
+  albumHak: AlbumHakBilgi | null;
 }) {
   const router = useRouter();
   const [sekme, setSekme] = useState<Sekme>("anilar");
@@ -398,11 +403,28 @@ export function MusteriPanel({
             icon={PenLine}
             etiket={`Anı Defteri (${anilar.length})`}
           />
+          {albumHak && (
+            <SekmeDugme
+              aktif={sekme === "album"}
+              onClick={() => setSekme("album")}
+              icon={GalleryHorizontalEnd}
+              etiket="Dijital Albüm"
+            />
+          )}
         </div>
 
         <div className="mt-5">
           <AnimatePresence mode="wait">
-            {sekme === "anilar" ? (
+            {sekme === "album" ? (
+              <motion.div
+                key="album"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+              >
+                <AlbumSekme hak={albumHak} />
+              </motion.div>
+            ) : sekme === "anilar" ? (
               <motion.div
                 key="anilar"
                 initial={{ opacity: 0, y: 10 }}
@@ -903,6 +925,53 @@ function Istatistik({
       <Icon className="mx-auto h-5 w-5 text-primary" />
       <p className="font-display mt-2 text-2xl font-semibold">{deger}</p>
       <p className="text-xs text-muted-foreground">{etiket}</p>
+    </div>
+  );
+}
+
+// Müşteri "Dijital Albüm" sekmesi — hak varsa görünür. Seçim ekranına yönlendirir.
+function AlbumSekme({ hak }: { hak: AlbumHakBilgi | null }) {
+  if (!hak) return null;
+  if (hak.secim_tamamlandi) {
+    return (
+      <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+        <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
+        <h3 className="font-display mt-3 text-lg font-semibold text-emerald-800">
+          Albüm seçiminiz tamamlandı 💛
+        </h3>
+        <p className="mt-1.5 text-sm text-emerald-700">
+          Seçtiğiniz {hak.secili_sayisi} fotoğraf ekibimize iletildi. Profesyonel
+          albümünüz hazırlanıyor.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-3xl border border-primary/20 bg-gradient-to-br from-primary-soft/50 to-card p-6 text-center sm:p-8">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-elegant">
+        <GalleryHorizontalEnd className="h-6 w-6" />
+      </span>
+      <h3 className="font-display mt-3 text-xl font-semibold tracking-tight">
+        Dijital Albümünüzü Hazırlayın
+      </h3>
+      <p className="mx-auto mt-1.5 max-w-md text-sm text-foreground/70">
+        <span className="font-medium text-primary-deep">{paketEtiket(hak.paket)}</span>{" "}
+        paketiniz ({hak.limit_adet} fotoğraf). Fotoğraflarınızı seçin, sıralayın,
+        kapak ve bölümleri belirleyin.
+      </p>
+      <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary-soft px-4 py-1.5 text-sm font-semibold text-primary-deep">
+        <Star className="h-4 w-4" /> {hak.secili_sayisi} / {hak.limit_adet} seçildi
+      </p>
+      {hak.secim_token && (
+        <div className="mt-5">
+          <Link
+            href={`/album-sec/${hak.secim_token}`}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-elegant transition-all hover:brightness-110"
+          >
+            <GalleryHorizontalEnd className="h-4 w-4" /> Albümümü Hazırla
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

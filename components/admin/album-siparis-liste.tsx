@@ -4,12 +4,15 @@
 // durumu + tamamlanma tarihi + PDF üretimi. PDF müşterinin seçim/sıra/kapak/
 // bölümlerinden üretilir (AI/otomatik seçim YOK).
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ClipboardList,
   FileDown,
   Link2,
   CheckCircle2,
   Clock,
+  Truck,
+  Loader2,
 } from "lucide-react";
 import { paketEtiket } from "@/lib/album/sabit";
 import type { AlbumSiparisSatir } from "@/lib/album/veri";
@@ -28,7 +31,31 @@ function tarihTR(iso: string | null): string {
 }
 
 export function AlbumSiparisListe({ liste }: { liste: AlbumSiparisSatir[] }) {
+  const router = useRouter();
   const [mesaj, setMesaj] = useState<string | null>(null);
+  const [calisan, setCalisan] = useState<string | null>(null);
+
+  async function teslimEt(albumId: string, teslim: boolean) {
+    if (calisan) return;
+    setCalisan(albumId);
+    try {
+      const res = await fetch("/api/admin/album/teslim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ albumId, teslim }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.hata ?? "İşlem başarısız.");
+      setMesaj(teslim ? "Albüm teslim edildi olarak işaretlendi." : "Teslim geri alındı.");
+      setTimeout(() => setMesaj(null), 2500);
+      router.refresh();
+    } catch {
+      setMesaj("İşlem başarısız.");
+      setTimeout(() => setMesaj(null), 2500);
+    } finally {
+      setCalisan(null);
+    }
+  }
 
   function linkKopyala(token: string | null) {
     if (!token) return;
@@ -131,6 +158,32 @@ export function AlbumSiparisListe({ liste }: { liste: AlbumSiparisSatir[] }) {
                       ) : (
                         <span className="text-xs text-muted-foreground">Seçim yok</span>
                       )}
+                      {s.tamamlandi &&
+                        (s.teslim_edildi ? (
+                          <button
+                            type="button"
+                            onClick={() => teslimEt(s.album_id, false)}
+                            disabled={calisan === s.album_id}
+                            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:brightness-105 disabled:opacity-60"
+                            title="Teslimi geri al"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Teslim edildi
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => teslimEt(s.album_id, true)}
+                            disabled={calisan === s.album_id}
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                          >
+                            {calisan === s.album_id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Truck className="h-3.5 w-3.5" />
+                            )}
+                            Teslim Et
+                          </button>
+                        ))}
                     </div>
                   </td>
                 </tr>

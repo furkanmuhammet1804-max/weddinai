@@ -48,3 +48,9 @@ export const albumSecimKaydetSema = z.object({
 export const albumSecimTamamlaSema = z.object({
   token: z.string().trim().min(16).max(128),
 });
+
+// F5 V3 — admin albümü teslim edildi olarak işaretler.
+export const albumTeslimSema = z.object({
+  albumId: z.string().uuid(),
+  teslim: z.boolean(),
+});

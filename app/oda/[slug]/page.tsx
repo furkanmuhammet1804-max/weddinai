@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { odaOturumOku } from "@/lib/oda/oturum";
 import { odaBilgiId, odaMedyalari, odaAnilari, odaAcikMi } from "@/lib/oda/veri";
+import { albumHakDurum } from "@/lib/album/veri";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OdaGiris } from "@/components/musteri/oda-giris";
 import { MusteriPanel } from "@/components/musteri/musteri-panel";
@@ -41,13 +42,20 @@ export default async function OdaPage(props: PageProps<"/oda/[slug]">) {
     return <OdaKapali baslik={bilgi.title} />;
   }
 
-  const [medyalar, anilar] = await Promise.all([
+  const [medyalar, anilar, albumHak] = await Promise.all([
     odaMedyalari(eventId),
     odaAnilari(eventId),
+    albumHakDurum(eventId),
   ]);
 
   return (
-    <MusteriPanel slug={temiz} bilgi={bilgi} medyalar={medyalar} anilar={anilar} />
+    <MusteriPanel
+      slug={temiz}
+      bilgi={bilgi}
+      medyalar={medyalar}
+      anilar={anilar}
+      albumHak={albumHak}
+    />
   );
 }
 
