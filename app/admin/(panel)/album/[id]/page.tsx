@@ -26,7 +26,7 @@ export default async function AdminAlbumEditorPage(props: {
       slugIlk={album.slug}
       kapakIlk={album.kapak_media_id}
       fotograflarIlk={album.fotograflar}
-      havuz={havuz.map((h) => ({ media_id: h.id, url: h.url, kategori: h.kategori }))}
+      havuz={havuz}
     />
   );
 }

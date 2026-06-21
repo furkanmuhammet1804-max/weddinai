@@ -1,12 +1,14 @@
 // =============================================================
-// ALBÜM VERİSİ — sunucu tarafı (service-role). (Özellik 5)
-// Admin albüm oluşturma/düzenleme/yayınlama + public okuma.
+// ALBÜM VERİSİ — sunucu tarafı (service-role). (Özellik 5 revizyonu)
+//
+// ÇOK ÖNEMLİ: Albümü YALNIZCA ADMIN oluşturur ve kürasyonu admin yapar.
+// Müşteri yalnızca fotoğraf görüntüler, favoriler ve "albüme aday" işaretler.
+// AI otomatik seçim YOKTUR; admin adaylar + favorilerden albümü elle kurar.
+// Son karar her zaman adminde.
 // =============================================================
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugYap, kisaEk } from "@/lib/slug";
-import { paketAdet } from "@/lib/album/sabit";
-import { albumSec } from "@/lib/album/sec";
-import { analizHamListe, analizListesi, type AnalizFoto } from "@/lib/medya/veri";
+import { paketAdet, VARSAYILAN_BOLUM } from "@/lib/album/sabit";
 import { odaBilgiId } from "@/lib/oda/veri";
 
 const MEDYA_BUCKET = "event-media";
@@ -16,11 +18,12 @@ export interface AlbumListeSatir {
   event_id: string;
   event_title: string;
   customer_name: string | null;
-  analiz_edilen: number;
+  foto_sayisi: number; // odadaki fotoğraf sayısı
+  aday_sayisi: number; // favori veya albüme aday işaretli
   album_id: string | null;
   durum: string | null;
   slug: string | null;
-  foto_sayisi: number;
+  album_foto_sayisi: number;
 }
 
 export interface AlbumFoto {
@@ -28,6 +31,14 @@ export interface AlbumFoto {
   url: string | null;
   bolum: string | null;
   sira: number;
+}
+
+// Aday/havuz fotoğrafı (admin'in albüme ekleyebileceği).
+export interface HavuzFoto {
+  media_id: string;
+  url: string | null;
+  favori: boolean;
+  aday: boolean;
 }
 
 export interface Album {
@@ -49,9 +60,7 @@ async function imzaliUrlHaritasi(paths: string[]): Promise<Map<string, string>> 
   const temiz = paths.filter(Boolean);
   if (temiz.length === 0) return harita;
   const admin = createAdminClient();
-  const { data } = await admin.storage
-    .from(MEDYA_BUCKET)
-    .createSignedUrls(temiz, IMZA_OMUR_SN);
+  const { data } = await admin.storage.from(MEDYA_BUCKET).createSignedUrls(temiz, IMZA_OMUR_SN);
   for (const item of data ?? [])
     if (item.path && item.signedUrl) harita.set(item.path, item.signedUrl);
   return harita;
@@ -71,28 +80,30 @@ export async function albumListe(): Promise<AlbumListeSatir[]> {
   const [{ data: medyalar }, { data: albumler }] = await Promise.all([
     admin
       .from("media")
-      .select("event_id")
+      .select("event_id, file_type, is_favorite, album_aday")
       .in("event_id", ids)
-      .eq("file_type", "fotograf")
-      .eq("ai_analiz_durum", "analiz_edildi"),
+      .eq("file_type", "fotograf"),
     admin.from("albumler").select("id, event_id, durum, slug").in("event_id", ids),
   ]);
 
-  const analizSay = new Map<string, number>();
-  for (const m of medyalar ?? [])
-    analizSay.set(m.event_id as string, (analizSay.get(m.event_id as string) ?? 0) + 1);
+  const fotoSay = new Map<string, number>();
+  const adaySay = new Map<string, number>();
+  for (const m of medyalar ?? []) {
+    const k = m.event_id as string;
+    fotoSay.set(k, (fotoSay.get(k) ?? 0) + 1);
+    if (m.is_favorite || m.album_aday) adaySay.set(k, (adaySay.get(k) ?? 0) + 1);
+  }
   const albumMap = new Map((albumler ?? []).map((a) => [a.event_id as string, a]));
 
-  // Albüm foto sayıları.
   const albumIds = (albumler ?? []).map((a) => a.id as string);
-  const fotoSay = new Map<string, number>();
+  const albumFotoSay = new Map<string, number>();
   if (albumIds.length) {
     const { data: foto } = await admin
       .from("album_fotograflar")
       .select("album_id")
       .in("album_id", albumIds);
     for (const f of foto ?? [])
-      fotoSay.set(f.album_id as string, (fotoSay.get(f.album_id as string) ?? 0) + 1);
+      albumFotoSay.set(f.album_id as string, (albumFotoSay.get(f.album_id as string) ?? 0) + 1);
   }
 
   return liste.map((o) => {
@@ -101,16 +112,38 @@ export async function albumListe(): Promise<AlbumListeSatir[]> {
       event_id: o.id as string,
       event_title: o.title as string,
       customer_name: (o.customer_name as string) ?? null,
-      analiz_edilen: analizSay.get(o.id as string) ?? 0,
+      foto_sayisi: fotoSay.get(o.id as string) ?? 0,
+      aday_sayisi: adaySay.get(o.id as string) ?? 0,
       album_id: (a?.id as string) ?? null,
       durum: (a?.durum as string) ?? null,
       slug: (a?.slug as string) ?? null,
-      foto_sayisi: a ? (fotoSay.get(a.id as string) ?? 0) : 0,
+      album_foto_sayisi: a ? (albumFotoSay.get(a.id as string) ?? 0) : 0,
     };
   });
 }
 
-// ---- Oluştur (admin tetikler; otomatik DEĞİL) ----
+// Odanın fotoğrafları (favori/aday bayraklarıyla) — albüm havuzu kaynağı.
+async function odaFotograflari(eventId: string): Promise<
+  { id: string; storage_path: string; favori: boolean; aday: boolean; created_at: string }[]
+> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("media")
+    .select("id, storage_path, is_favorite, album_aday, created_at")
+    .eq("event_id", eventId)
+    .eq("file_type", "fotograf")
+    .neq("status", "reddedildi")
+    .order("created_at", { ascending: true });
+  return (data ?? []).map((m) => ({
+    id: m.id as string,
+    storage_path: m.storage_path as string,
+    favori: !!m.is_favorite,
+    aday: !!m.album_aday,
+    created_at: m.created_at as string,
+  }));
+}
+
+// ---- Oluştur (admin tetikler; adaylardan/favorilerden TOHUMLAR, AI seçim YOK) ----
 export async function albumOlustur(
   eventId: string,
   paket: string,
@@ -118,7 +151,6 @@ export async function albumOlustur(
 ): Promise<{ ok: boolean; id?: string; mevcut?: boolean; hata?: string }> {
   const admin = createAdminClient();
 
-  // Etkinlikte zaten albüm varsa onu döndür (üzerine yazma).
   const { data: varOlan } = await admin
     .from("albumler")
     .select("id")
@@ -126,14 +158,14 @@ export async function albumOlustur(
     .maybeSingle();
   if (varOlan) return { ok: true, id: varOlan.id as string, mevcut: true };
 
-  const analiz = await analizHamListe(eventId);
-  if (analiz.length === 0) {
-    return { ok: false, hata: "Önce AI Medya Merkezi'nde fotoğrafları analiz edin." };
+  const fotolar = await odaFotograflari(eventId);
+  if (fotolar.length === 0) {
+    return { ok: false, hata: "Odada fotoğraf yok. Önce misafirler yüklemeli." };
   }
 
   const limit = paketAdet(paket, ozelAdet);
-  const secim = albumSec(analiz, limit);
-  if (secim.length === 0) return { ok: false, hata: "Seçilebilecek uygun fotoğraf yok." };
+  // Tohum: müşterinin işaretlediği adaylar + favoriler (öncelikli), limit kadar.
+  const adaylar = fotolar.filter((f) => f.aday || f.favori).slice(0, limit);
 
   const bilgi = await odaBilgiId(eventId);
   const { data: album, error } = await admin
@@ -143,7 +175,7 @@ export async function albumOlustur(
       baslik: `${bilgi?.title ?? "Düğün"} Albümü`,
       paket,
       limit_adet: limit,
-      kapak_media_id: secim[0]?.media_id ?? null,
+      kapak_media_id: adaylar[0]?.id ?? null,
       durum: "taslak",
     })
     .select("id")
@@ -151,14 +183,16 @@ export async function albumOlustur(
   if (error || !album) return { ok: false, hata: "Albüm oluşturulamadı." };
 
   const albumId = album.id as string;
-  const satirlar = secim.map((s) => ({
-    album_id: albumId,
-    media_id: s.media_id,
-    bolum: s.bolum,
-    sira: s.sira,
-  }));
-  const { error: fErr } = await admin.from("album_fotograflar").insert(satirlar);
-  if (fErr) return { ok: false, hata: "Fotoğraflar eklenemedi." };
+  if (adaylar.length > 0) {
+    const satirlar = adaylar.map((f, i) => ({
+      album_id: albumId,
+      media_id: f.id,
+      bolum: VARSAYILAN_BOLUM,
+      sira: i,
+    }));
+    const { error: fErr } = await admin.from("album_fotograflar").insert(satirlar);
+    if (fErr) return { ok: false, hata: "Fotoğraflar eklenemedi." };
+  }
 
   return { ok: true, id: albumId, mevcut: false };
 }
@@ -179,6 +213,28 @@ function satirCevir(row: Record<string, unknown>, eventTitle: string, fotografla
   };
 }
 
+async function albumFotograflari(albumId: string): Promise<AlbumFoto[]> {
+  const admin = createAdminClient();
+  const { data: foto } = await admin
+    .from("album_fotograflar")
+    .select("media_id, bolum, sira, media(storage_path)")
+    .eq("album_id", albumId)
+    .order("sira", { ascending: true });
+  const satirlar = foto ?? [];
+  const harita = await imzaliUrlHaritasi(
+    satirlar.map((f) => (f as { media?: { storage_path?: string } }).media?.storage_path ?? ""),
+  );
+  return satirlar.map((f) => {
+    const path = (f as { media?: { storage_path?: string } }).media?.storage_path ?? "";
+    return {
+      media_id: f.media_id as string,
+      url: harita.get(path) ?? null,
+      bolum: (f.bolum as string) ?? null,
+      sira: (f.sira as number) ?? 0,
+    };
+  });
+}
+
 // ---- Admin editör ----
 export async function albumGetir(id: string): Promise<Album | null> {
   const admin = createAdminClient();
@@ -188,38 +244,30 @@ export async function albumGetir(id: string): Promise<Album | null> {
     .eq("id", id)
     .maybeSingle();
   if (!data) return null;
-
-  const { data: foto } = await admin
-    .from("album_fotograflar")
-    .select("media_id, bolum, sira, media(storage_path)")
-    .eq("album_id", id)
-    .order("sira", { ascending: true });
-  const satirlar = foto ?? [];
-  const harita = await imzaliUrlHaritasi(
-    satirlar.map((f) => (f as { media?: { storage_path?: string } }).media?.storage_path ?? ""),
-  );
-  const fotograflar: AlbumFoto[] = satirlar.map((f) => {
-    const path = (f as { media?: { storage_path?: string } }).media?.storage_path ?? "";
-    return {
-      media_id: f.media_id as string,
-      url: harita.get(path) ?? null,
-      bolum: (f.bolum as string) ?? null,
-      sira: (f.sira as number) ?? 0,
-    };
-  });
-
+  const fotograflar = await albumFotograflari(id);
   const ev = (data as { events?: { title?: string } }).events;
   return satirCevir(data, ev?.title ?? "Oda", fotograflar);
 }
 
-// Albümde olmayan, analiz edilmiş fotoğraflar (ekleme havuzu).
+// "Albüme Aday Fotoğraflar" + havuz: albümde OLMAYAN oda fotoğrafları,
+// favori/aday bayraklarıyla (adaylar üstte).
 export async function albumHavuz(
   eventId: string,
   haricMediaIds: string[],
-): Promise<AnalizFoto[]> {
-  const tum = await analizListesi(eventId);
+): Promise<HavuzFoto[]> {
+  const fotolar = await odaFotograflari(eventId);
   const haric = new Set(haricMediaIds);
-  return tum.filter((f) => !haric.has(f.id));
+  const kalan = fotolar.filter((f) => !haric.has(f.id));
+  const harita = await imzaliUrlHaritasi(kalan.map((f) => f.storage_path));
+  const liste: HavuzFoto[] = kalan.map((f) => ({
+    media_id: f.id,
+    url: harita.get(f.storage_path) ?? null,
+    favori: f.favori,
+    aday: f.aday,
+  }));
+  // Adaylar/favoriler önce.
+  liste.sort((a, b) => Number(b.aday || b.favori) - Number(a.aday || a.favori));
+  return liste;
 }
 
 // ---- Kaydet (sıra/bölüm/kapak/başlık) ----
@@ -236,7 +284,6 @@ export async function albumKaydet(id: string, g: AlbumKaydetGirdi): Promise<bool
     .eq("id", id);
   if (uErr) return false;
 
-  // Foto setini yeniden yaz (basit ve güvenli).
   await admin.from("album_fotograflar").delete().eq("album_id", id);
   if (g.fotograflar.length === 0) return true;
   const satirlar = g.fotograflar.map((f) => ({
@@ -301,25 +348,7 @@ export async function albumSlugIle(slug: string): Promise<Album | null> {
     .eq("durum", "yayinda")
     .maybeSingle();
   if (!data) return null;
-
-  const { data: foto } = await admin
-    .from("album_fotograflar")
-    .select("media_id, bolum, sira, media(storage_path)")
-    .eq("album_id", data.id as string)
-    .order("sira", { ascending: true });
-  const satirlar = foto ?? [];
-  const harita = await imzaliUrlHaritasi(
-    satirlar.map((f) => (f as { media?: { storage_path?: string } }).media?.storage_path ?? ""),
-  );
-  const fotograflar: AlbumFoto[] = satirlar.map((f) => {
-    const path = (f as { media?: { storage_path?: string } }).media?.storage_path ?? "";
-    return {
-      media_id: f.media_id as string,
-      url: harita.get(path) ?? null,
-      bolum: (f.bolum as string) ?? null,
-      sira: (f.sira as number) ?? 0,
-    };
-  });
+  const fotograflar = await albumFotograflari(data.id as string);
   const ev = (data as { events?: { title?: string } }).events;
   return satirCevir(data, ev?.title ?? "", fotograflar);
 }

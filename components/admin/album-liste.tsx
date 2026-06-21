@@ -10,7 +10,7 @@ import {
   Loader2,
   Pencil,
   ExternalLink,
-  Sparkles,
+  Plus,
 } from "lucide-react";
 import { ALBUM_PAKETLER } from "@/lib/album/sabit";
 import type { AlbumListeSatir } from "@/lib/album/veri";
@@ -56,10 +56,10 @@ export function AlbumListe({ liste }: { liste: AlbumListeSatir[] }) {
         </span>
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight">
-            AI Dijital Albüm
+            Dijital Albüm
           </h1>
           <p className="text-sm text-muted-foreground">
-            En iyi kareleri AI seçsin; siz düzenleyip yayınlayın.
+            Müşterinin adaylarından siz seçip düzenleyin, bölümleyin ve yayınlayın. Son karar sizde.
           </p>
         </div>
       </div>
@@ -76,7 +76,7 @@ export function AlbumListe({ liste }: { liste: AlbumListeSatir[] }) {
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Oda</th>
-                <th className="px-4 py-3 text-right font-medium">Analiz</th>
+                <th className="px-4 py-3 text-right font-medium">Aday / Foto</th>
                 <th className="px-4 py-3 font-medium">Albüm</th>
                 <th className="px-4 py-3 text-right font-medium">İşlem</th>
               </tr>
@@ -98,16 +98,16 @@ export function AlbumListe({ liste }: { liste: AlbumListeSatir[] }) {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
-                    {s.analiz_edilen} foto
+                    <span className="font-medium text-rose">{s.aday_sayisi}</span> / {s.foto_sayisi}
                   </td>
                   <td className="px-4 py-3">
                     {s.durum === "yayinda" ? (
                       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                        Yayında · {s.foto_sayisi}
+                        Yayında · {s.album_foto_sayisi}
                       </span>
                     ) : s.durum === "taslak" ? (
                       <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        Taslak · {s.foto_sayisi}
+                        Taslak · {s.album_foto_sayisi}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
@@ -131,7 +131,7 @@ export function AlbumListe({ liste }: { liste: AlbumListeSatir[] }) {
                         >
                           <Pencil className="h-3.5 w-3.5" /> Düzenle
                         </Link>
-                      ) : s.analiz_edilen > 0 ? (
+                      ) : s.foto_sayisi > 0 ? (
                         <>
                           <select
                             value={paketler[s.event_id] ?? "baslangic"}
@@ -155,17 +155,17 @@ export function AlbumListe({ liste }: { liste: AlbumListeSatir[] }) {
                           >
                             {calisan === s.event_id ? (
                               <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Seçiliyor…
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Oluşturuluyor…
                               </>
                             ) : (
                               <>
-                                <Sparkles className="h-3.5 w-3.5" /> Oluştur
+                                <Plus className="h-3.5 w-3.5" /> Oluştur
                               </>
                             )}
                           </button>
                         </>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Önce analiz</span>
+                        <span className="text-xs text-muted-foreground">Önce fotoğraf</span>
                       )}
                     </div>
                   </td>

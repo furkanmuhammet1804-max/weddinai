@@ -1,17 +1,16 @@
 // =============================================================
-// AI Medya Merkezi — paylaşılan sabitler (Özellik 4). Sunucu-only import yok;
-// hem rota/sınıflandırıcı hem de admin UI kullanır.
+// AI Medya Merkezi — paylaşılan sabitler (Özellik 4 revizyonu).
+// Sunucu-only import yok; hem rota/işleyici hem admin UI kullanır.
+//
+// Kategoriler artık BASİT ve LOKAL (yüz sayımı / dosya türü):
+//   tekli = 0–1 yüz · toplu = 2+ yüz · video = video dosyası
+// Gemini Vision kategorileri KALDIRILDI (sürekli maliyet + karmaşık AI yok).
 // =============================================================
 
 export const MEDYA_KATEGORILER = [
-  { deger: "gelin_damat", etiket: "Gelin & Damat" },
-  { deger: "aile", etiket: "Aile" },
-  { deger: "arkadas", etiket: "Arkadaş" },
-  { deger: "grup", etiket: "Grup" },
-  { deger: "sahne", etiket: "Sahne" },
-  { deger: "nikah", etiket: "Nikah" },
-  { deger: "kina", etiket: "Kına" },
-  { deger: "dugun", etiket: "Düğün" },
+  { deger: "tekli", etiket: "Tekli Fotoğraflar" },
+  { deger: "toplu", etiket: "Toplu Fotoğraflar" },
+  { deger: "video", etiket: "Videolar" },
 ] as const;
 
 export type MedyaKategori = (typeof MEDYA_KATEGORILER)[number]["deger"];
@@ -19,9 +18,9 @@ export type MedyaKategori = (typeof MEDYA_KATEGORILER)[number]["deger"];
 export const KATEGORI_DEGERLER: string[] = MEDYA_KATEGORILER.map((k) => k.deger);
 
 export function kategoriEtiket(deger: string | null | undefined): string {
-  if (!deger) return "—";
+  if (!deger) return "Kategorisiz";
   return MEDYA_KATEGORILER.find((k) => k.deger === deger)?.etiket ?? deger;
 }
 
-// Tek seferde işlenecek en fazla fotoğraf (büyük odalarda "Devam et" ile devam).
-export const ANALIZ_PARTI_BOYUT = 40;
+// Tek admin partisinde işlenecek en fazla bekleyen foto ("Devam et" ile sürer).
+export const KATEGORI_PARTI_BOYUT = 25;

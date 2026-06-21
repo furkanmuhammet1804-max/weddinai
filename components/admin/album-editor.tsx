@@ -21,8 +21,9 @@ import {
   CheckCircle2,
   Link2,
   FileDown,
+  Heart,
 } from "lucide-react";
-import { BOLUM_DUZEN, paketEtiket } from "@/lib/album/sabit";
+import { BOLUM_DUZEN, VARSAYILAN_BOLUM, paketEtiket } from "@/lib/album/sabit";
 
 interface Foto {
   media_id: string;
@@ -32,7 +33,8 @@ interface Foto {
 interface HavuzFoto {
   media_id: string;
   url: string | null;
-  kategori: string | null;
+  favori: boolean;
+  aday: boolean;
 }
 
 interface Props {
@@ -65,6 +67,7 @@ export function AlbumEditor({
   const [durum, setDurum] = useState(durumIlk);
   const [slug, setSlug] = useState(slugIlk);
   const [havuzAcik, setHavuzAcik] = useState(false);
+  const [sadeceAday, setSadeceAday] = useState(false);
   const [islem, setIslem] = useState<null | "kaydet" | "yayin">(null);
   const [mesaj, setMesaj] = useState<string | null>(null);
   const [hata, setHata] = useState<string | null>(null);
@@ -94,15 +97,27 @@ export function AlbumEditor({
   function cikar(i: number) {
     setFotolar((o) => {
       const f = o[i];
-      setHavuz((h) => [{ media_id: f.media_id, url: f.url, kategori: null }, ...h]);
+      setHavuz((h) => [{ media_id: f.media_id, url: f.url, favori: false, aday: false }, ...h]);
       if (kapak === f.media_id) setKapak(null);
       return o.filter((_, j) => j !== i);
     });
   }
 
   function havuzdanEkle(h: HavuzFoto) {
-    setFotolar((o) => [...o, { media_id: h.media_id, url: h.url, bolum: "Diğer" }]);
+    setFotolar((o) => [...o, { media_id: h.media_id, url: h.url, bolum: VARSAYILAN_BOLUM }]);
     setHavuz((arr) => arr.filter((x) => x.media_id !== h.media_id));
+  }
+
+  function adaylariEkle() {
+    setFotolar((o) => {
+      const adaylar = havuz.filter((h) => h.aday || h.favori);
+      if (adaylar.length === 0) return o;
+      return [
+        ...o,
+        ...adaylar.map((h) => ({ media_id: h.media_id, url: h.url, bolum: VARSAYILAN_BOLUM })),
+      ];
+    });
+    setHavuz((arr) => arr.filter((x) => !(x.aday || x.favori)));
   }
 
   async function kaydet(): Promise<boolean> {
@@ -260,7 +275,7 @@ export function AlbumEditor({
           onClick={() => setHavuzAcik((v) => !v)}
           className="inline-flex items-center gap-2 rounded-full border border-primary/40 px-5 py-2.5 text-sm font-semibold text-primary-deep transition-colors hover:bg-primary-soft/50"
         >
-          <Plus className="h-4 w-4" /> Fotoğraf ekle ({havuz.length})
+          <Plus className="h-4 w-4" /> Aday & Havuz ({havuz.length})
         </button>
         {durum === "yayinda" ? (
           <button
@@ -285,34 +300,79 @@ export function AlbumEditor({
         )}
       </div>
 
-      {/* Havuz */}
-      {havuzAcik && (
-        <div className="mt-5 rounded-2xl border border-border bg-card p-4">
-          <p className="mb-3 text-sm font-medium">Havuz — eklemek için bir fotoğrafa dokunun</p>
-          {havuz.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Eklenecek başka fotoğraf yok.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-              {havuz.map((h) => (
-                <button
-                  key={h.media_id}
-                  type="button"
-                  onClick={() => havuzdanEkle(h)}
-                  className="relative aspect-square overflow-hidden rounded-lg border border-border hover:ring-2 hover:ring-primary/40"
-                >
-                  {h.url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={h.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+      {/* Albüme Aday Fotoğraflar + Havuz */}
+      {havuzAcik &&
+        (() => {
+          const adaySayisi = havuz.filter((h) => h.aday || h.favori).length;
+          const gosterilenHavuz = sadeceAday
+            ? havuz.filter((h) => h.aday || h.favori)
+            : havuz;
+          return (
+            <div className="mt-5 rounded-2xl border border-border bg-card p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium">Albüme Aday Fotoğraflar</p>
+                  <p className="text-xs text-muted-foreground">
+                    Müşterinin favorilediği / albüme aday işaretlediği kareler önce gösterilir.
+                    Eklemek için bir fotoğrafa dokunun.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSadeceAday((v) => !v)}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      sadeceAday
+                        ? "bg-rose text-white"
+                        : "border border-border text-foreground/70 hover:border-rose hover:text-rose"
+                    }`}
+                  >
+                    <Heart className={`h-3.5 w-3.5 ${sadeceAday ? "fill-white" : ""}`} />
+                    Sadece adaylar ({adaySayisi})
+                  </button>
+                  {adaySayisi > 0 && (
+                    <button
+                      type="button"
+                      onClick={adaylariEkle}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Adayları ekle
+                    </button>
                   )}
-                  <span className="absolute right-1 top-1 rounded-full bg-primary p-0.5 text-primary-foreground">
-                    <Plus className="h-3 w-3" />
-                  </span>
-                </button>
-              ))}
+                </div>
+              </div>
+              {gosterilenHavuz.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {sadeceAday ? "Aday işaretli fotoğraf yok." : "Eklenecek başka fotoğraf yok."}
+                </p>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+                  {gosterilenHavuz.map((h) => (
+                    <button
+                      key={h.media_id}
+                      type="button"
+                      onClick={() => havuzdanEkle(h)}
+                      className="relative aspect-square overflow-hidden rounded-lg border border-border hover:ring-2 hover:ring-primary/40"
+                    >
+                      {h.url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={h.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      )}
+                      {(h.aday || h.favori) && (
+                        <span className="absolute left-1 top-1 rounded-full bg-rose p-0.5 text-white">
+                          <Heart className="h-3 w-3 fill-white" />
+                        </span>
+                      )}
+                      <span className="absolute right-1 top-1 rounded-full bg-primary p-0.5 text-primary-foreground">
+                        <Plus className="h-3 w-3" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
+          );
+        })()}
 
       {/* Albüm ızgarası (sürükle-bırak) */}
       {fotolar.length === 0 ? (

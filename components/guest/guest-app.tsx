@@ -307,16 +307,30 @@ function YuklemeAlani({
         );
 
         const supabase = createClient();
-        const { error: rpcErr } = await supabase.rpc("misafir_medya_ekle", {
-          p_slug: slug,
-          p_storage_path: path,
-          p_file_type: d.tur,
-          p_file_size: d.dosya.size,
-          p_guest_name: isimRef.current.trim() || null,
-        });
+        const { data: yeniId, error: rpcErr } = await supabase.rpc(
+          "misafir_medya_ekle",
+          {
+            p_slug: slug,
+            p_storage_path: path,
+            p_file_type: d.tur,
+            p_file_size: d.dosya.size,
+            p_guest_name: isimRef.current.trim() || null,
+          },
+        );
         if (rpcErr) throw rpcErr;
 
         durumGuncelle(d.id, { durum: "tamam", ilerleme: 100 });
+
+        // Yüklenir yüklenmez arka planda otomatik kategorile (ateşle-unut;
+        // UI'ı bloklamaz, hata olsa da yükleme başarılı sayılır).
+        if (typeof yeniId === "string") {
+          void fetch("/api/medya/otokategori", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, mediaId: yeniId }),
+            keepalive: true,
+          }).catch(() => {});
+        }
       } catch {
         durumGuncelle(d.id, {
           durum: "hata",

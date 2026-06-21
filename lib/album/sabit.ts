@@ -1,5 +1,6 @@
 // =============================================================
-// AI Dijital Albüm — paylaşılan sabitler (Özellik 5). Sunucu-only import yok.
+// Dijital Albüm — paylaşılan sabitler (Özellik 5 revizyonu). Sunucu-only import yok.
+// Albüm YALNIZCA admin tarafından kurulur. AI otomatik seçim YOK.
 // =============================================================
 
 export const ALBUM_PAKETLER = [
@@ -27,31 +28,18 @@ export function paketAdet(paket: string, ozelAdet?: number | null): number {
   return ALBUM_PAKETLER.find((p) => p.deger === paket)?.adet ?? 50;
 }
 
-// F4 kategorisi → albüm bölümü (hikâye akışı).
-export const KATEGORI_BOLUM: Record<string, string> = {
-  kina: "Kına",
-  nikah: "Nikah",
-  dugun: "Düğün",
-  sahne: "Sahne",
-  gelin_damat: "Çift",
-  aile: "Aile",
-  arkadas: "Arkadaşlar",
-  grup: "Grup",
-};
-
-// Hikâye akışı sıralaması (albümde bölüm sırası).
+// Albüm bölümleri (düğün hikâye akışı). Admin her fotoğrafı bir bölüme atar.
 export const BOLUM_DUZEN = [
+  "Hazırlık",
   "Kına",
   "Nikah",
   "Düğün",
-  "Sahne",
-  "Çift",
-  "Aile",
-  "Arkadaşlar",
-  "Grup",
+  "İlk Dans",
+  "Pasta",
+  "Takı",
+  "Eğlence",
+  "Kapanış",
   "Diğer",
 ];
 
-export function bolumIcin(kategori: string | null | undefined): string {
-  return KATEGORI_BOLUM[kategori ?? ""] ?? "Diğer";
-}
+export const VARSAYILAN_BOLUM = "Diğer";

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { odaBilgiId } from "@/lib/oda/veri";
-import { analizDurum, analizListesi } from "@/lib/medya/veri";
+import { kategoriDurum, medyaListesi } from "@/lib/medya/veri";
+import { onayTokenGetirVeyaUret } from "@/lib/kvkk/onay";
 import { MedyaMerkezi } from "@/components/admin/medya-merkezi";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +13,10 @@ export default async function AdminMedyaMerkeziPage(props: {
   const bilgi = await odaBilgiId(id);
   if (!bilgi) notFound();
 
-  const [durum, fotolar] = await Promise.all([
-    analizDurum(id),
-    analizListesi(id),
+  const [durum, medyalar, token] = await Promise.all([
+    kategoriDurum(id),
+    medyaListesi(id),
+    onayTokenGetirVeyaUret(id),
   ]);
 
   return (
@@ -22,7 +24,8 @@ export default async function AdminMedyaMerkeziPage(props: {
       eventId={id}
       eventTitle={bilgi.title}
       durumIlk={durum}
-      fotolar={fotolar}
+      medyalar={medyalar}
+      onayToken={token}
     />
   );
 }

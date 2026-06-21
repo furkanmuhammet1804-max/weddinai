@@ -1,49 +1,60 @@
 // =============================================================
-// AI MEDYA MERKEZİ VERİSİ — sunucu tarafı (service-role). (Özellik 4)
-// Analiz alanlarının okunması/yazılması + KVKK onay yönetimi.
+// AI MEDYA MERKEZİ VERİSİ — sunucu tarafı (service-role). (Özellik 4 revizyonu)
+//
+// Misafir yüklediği anda fotoğraf SUNUCUDA LOKAL yüz tespitiyle kategorilenir:
+//   tekli (0–1 yüz) · toplu (2+ yüz) · video (dosya türü). Sonuç media tablosuna
+//   yazılır (medya_kategori). Admin override edebilir. Gemini Vision yok.
+//
+// GÜVENLİK (§6): yüz tespiti biyometrik işleme sayıldığı için fotoğraflar
+// YALNIZCA events.ai_medya_onay = true (KVKK) ise işlenir. Onay yoksa videolar
+// 'video' etiketlenir, fotoğraflar kategorisiz "onay bekliyor" kalır.
 // =============================================================
 import { createAdminClient } from "@/lib/supabase/admin";
-import { hammingHex, YINELENEN_ESIK, BENZER_ESIK } from "@/lib/medya/analiz";
+import { yuzTespit } from "@/lib/medya/yuz";
 
 const MEDYA_BUCKET = "event-media";
 const IMZA_OMUR_SN = 60 * 60;
 
+// ---- Tipler ----
 export interface MedyaMerkeziSatir {
   event_id: string;
   event_title: string;
   customer_name: string | null;
-  foto_sayisi: number;
-  analiz_edilen: number;
+  toplam: number;
+  kategorilenen: number;
+  bekleyen: number;
   ai_medya_onay: boolean;
+  ai_onay_token: string | null;
 }
 
-export interface AnalizFoto {
+export interface MedyaFoto {
   id: string;
   url: string | null;
+  file_type: "fotograf" | "video";
   kategori: string | null;
   kategori_kaynak: string | null;
-  bulanik: boolean;
-  karanlik: boolean;
-  kalite_skor: number | null;
-  phash: string | null;
-  grup_id: number | null; // benzer grup numarası (read-time)
-  yinelenen: boolean; // grubunda daha yüksek kaliteli eş var
+  yuz_sayisi: number | null;
+  oto_islendi: boolean;
+  guest_name: string | null;
   created_at: string;
 }
 
-export interface AnalizDurum {
-  toplam_foto: number;
-  analiz_edilen: number;
-  kalan: number;
+export interface KategoriDurum {
+  toplam: number;
+  kategorilenen: number;
+  bekleyen: number; // oto_islendi = false
+  tekli: number;
+  toplu: number;
+  video: number;
   ai_medya_onay: boolean;
 }
 
-// ---- Admin liste ----
+// ---- Admin liste (oda başına özet) ----
 export async function medyaMerkeziListe(): Promise<MedyaMerkeziSatir[]> {
   const admin = createAdminClient();
   const { data: odalar } = await admin
     .from("events")
-    .select("id, title, customer_name, ai_medya_onay, created_at")
+    .select("id, title, customer_name, ai_medya_onay, ai_onay_token, created_at")
     .order("created_at", { ascending: false });
   const liste = odalar ?? [];
   if (liste.length === 0) return [];
@@ -51,33 +62,35 @@ export async function medyaMerkeziListe(): Promise<MedyaMerkeziSatir[]> {
 
   const { data: medyalar } = await admin
     .from("media")
-    .select("event_id, ai_analiz_durum")
-    .in("event_id", ids)
-    .eq("file_type", "fotograf");
+    .select("event_id, medya_kategori, oto_islendi")
+    .in("event_id", ids);
 
-  const sayim = new Map<string, { toplam: number; analiz: number }>();
+  const sayim = new Map<string, { toplam: number; kategorilenen: number; bekleyen: number }>();
   for (const m of medyalar ?? []) {
     const k = m.event_id as string;
-    const v = sayim.get(k) ?? { toplam: 0, analiz: 0 };
+    const v = sayim.get(k) ?? { toplam: 0, kategorilenen: 0, bekleyen: 0 };
     v.toplam += 1;
-    if (m.ai_analiz_durum === "analiz_edildi") v.analiz += 1;
+    if (m.medya_kategori) v.kategorilenen += 1;
+    if (!m.oto_islendi) v.bekleyen += 1;
     sayim.set(k, v);
   }
 
   return liste.map((o) => {
-    const v = sayim.get(o.id as string) ?? { toplam: 0, analiz: 0 };
+    const v = sayim.get(o.id as string) ?? { toplam: 0, kategorilenen: 0, bekleyen: 0 };
     return {
       event_id: o.id as string,
       event_title: o.title as string,
       customer_name: (o.customer_name as string) ?? null,
-      foto_sayisi: v.toplam,
-      analiz_edilen: v.analiz,
+      toplam: v.toplam,
+      kategorilenen: v.kategorilenen,
+      bekleyen: v.bekleyen,
       ai_medya_onay: !!o.ai_medya_onay,
+      ai_onay_token: (o.ai_onay_token as string) ?? null,
     };
   });
 }
 
-// ---- KVKK onayı ----
+// ---- KVKK onay durumu (sadece okuma; yazma lib/kvkk/onay.ts'te) ----
 export async function etkinlikOnayDurum(eventId: string): Promise<boolean> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -88,10 +101,8 @@ export async function etkinlikOnayDurum(eventId: string): Promise<boolean> {
   return !!data?.ai_medya_onay;
 }
 
-export async function etkinlikOnayBelirle(
-  eventId: string,
-  onay: boolean,
-): Promise<boolean> {
+// Admin elle onay aç/kapat (müşteri /ai-onay akışına ek; admin de yapabilir).
+export async function etkinlikOnayBelirle(eventId: string, onay: boolean): Promise<boolean> {
   const admin = createAdminClient();
   const { error } = await admin
     .from("events")
@@ -100,229 +111,217 @@ export async function etkinlikOnayBelirle(
       ai_medya_onay_at: onay ? new Date().toISOString() : null,
     })
     .eq("id", eventId);
+  if (!error && onay) await onaySonrasiKuyrugaAl(eventId);
   return !error;
 }
 
-// ---- Analiz durumu (ilerleme) ----
-export async function analizDurum(eventId: string): Promise<AnalizDurum> {
+// Onay verildikten SONRA: onaydan önce yüklenmiş (oto_islendi=true ama
+// kategorisiz, admin override edilmemiş) fotoğrafları yeniden kuyruğa al ki
+// admin "Bekleyenleri Kategorile" ile bunları işleyebilsin. Videolar zaten
+// kategorili olduğundan etkilenmez.
+export async function onaySonrasiKuyrugaAl(eventId: string): Promise<void> {
   const admin = createAdminClient();
-  const [toplam, analiz, onay] = await Promise.all([
-    admin
-      .from("media")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", eventId)
-      .eq("file_type", "fotograf"),
-    admin
-      .from("media")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", eventId)
-      .eq("file_type", "fotograf")
-      .eq("ai_analiz_durum", "analiz_edildi"),
-    etkinlikOnayDurum(eventId),
-  ]);
-  const t = toplam.count ?? 0;
-  const a = analiz.count ?? 0;
-  return { toplam_foto: t, analiz_edilen: a, kalan: Math.max(0, t - a), ai_medya_onay: onay };
+  // Yalnızca kategorisiz fotoğraflar; admin'in kategori atadıkları zaten
+  // (medya_kategori dolu olduğundan) bu filtreye girmez ve korunur.
+  await admin
+    .from("media")
+    .update({ oto_islendi: false })
+    .eq("event_id", eventId)
+    .eq("file_type", "fotograf")
+    .is("medya_kategori", null);
 }
 
-// ---- İşlenecek (henüz analiz edilmemiş) fotoğraflar ----
-export interface BekleyenFoto {
+// ---- Kategori durumu (ilerleme + dağılım) ----
+export async function kategoriDurum(eventId: string): Promise<KategoriDurum> {
+  const admin = createAdminClient();
+  const [{ data: medyalar }, onay] = await Promise.all([
+    admin.from("media").select("medya_kategori, oto_islendi").eq("event_id", eventId),
+    etkinlikOnayDurum(eventId),
+  ]);
+  const rows = medyalar ?? [];
+  let kategorilenen = 0, bekleyen = 0, tekli = 0, toplu = 0, video = 0;
+  for (const m of rows) {
+    if (m.medya_kategori) kategorilenen += 1;
+    if (!m.oto_islendi) bekleyen += 1;
+    if (m.medya_kategori === "tekli") tekli += 1;
+    else if (m.medya_kategori === "toplu") toplu += 1;
+    else if (m.medya_kategori === "video") video += 1;
+  }
+  return { toplam: rows.length, kategorilenen, bekleyen, tekli, toplu, video, ai_medya_onay: onay };
+}
+
+// ---- İşlenecek (oto_islendi=false) medyalar ----
+export interface BekleyenMedya {
   id: string;
   storage_path: string;
+  file_type: "fotograf" | "video";
 }
-export async function bekleyenFotograflar(
-  eventId: string,
-  limit: number,
-): Promise<BekleyenFoto[]> {
+export async function bekleyenMedyalar(eventId: string, limit: number): Promise<BekleyenMedya[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("media")
-    .select("id, storage_path")
+    .select("id, storage_path, file_type")
     .eq("event_id", eventId)
-    .eq("file_type", "fotograf")
-    .eq("ai_analiz_durum", "bekliyor")
+    .eq("oto_islendi", false)
     .order("created_at", { ascending: true })
     .limit(limit);
   return (data ?? []).map((m) => ({
     id: m.id as string,
     storage_path: m.storage_path as string,
+    file_type: m.file_type as "fotograf" | "video",
   }));
 }
 
-// Bir fotoğrafın storage'dan ham baytlarını indirir (sharp/vision için).
-export async function fotoBaytlari(
-  storagePath: string,
-): Promise<{ buf: Buffer; mime: string } | null> {
+async function medyaBaytlari(storagePath: string): Promise<Buffer | null> {
   const admin = createAdminClient();
-  const { data, error } = await admin.storage
-    .from(MEDYA_BUCKET)
-    .download(storagePath);
+  const { data, error } = await admin.storage.from(MEDYA_BUCKET).download(storagePath);
   if (error || !data) return null;
-  const buf = Buffer.from(await data.arrayBuffer());
-  const mime = (data as Blob).type || "image/jpeg";
-  return { buf, mime };
+  return Buffer.from(await data.arrayBuffer());
 }
 
-// ---- Analiz sonucunu kaydet ----
-export interface AnalizYama {
-  bulanik: boolean;
-  karanlik: boolean;
-  kaliteSkor: number;
-  phash: string;
-  kategori?: string | null; // vision sonucu (onay varsa)
+// ---- Otomatik kategori uygula (TEK medya) ----
+// Hem public misafir-tetikli uç hem admin parti işlemesi bunu kullanır.
+// Admin override (kaynak='admin') edilmiş medyaya DOKUNMAZ.
+export interface OtoSonuc {
+  ok: boolean;
+  kategori: string | null;
+  beklemede?: boolean; // KVKK onayı yok → foto kategorilenmedi
+  zatenIslendi?: boolean;
 }
-export async function analizKaydet(mediaId: string, y: AnalizYama): Promise<void> {
+export async function otoKategoriUygula(mediaId: string): Promise<OtoSonuc> {
   const admin = createAdminClient();
-  const yama: Record<string, unknown> = {
-    ai_analiz_durum: "analiz_edildi",
-    ai_bulanik: y.bulanik,
-    ai_karanlik: y.karanlik,
-    ai_kalite_skor: y.kaliteSkor,
-    ai_phash: y.phash,
-    ai_analiz_at: new Date().toISOString(),
-  };
-  if (y.kategori) {
-    yama.ai_kategori = y.kategori;
-    yama.ai_kategori_kaynak = "ai";
+  const { data: m } = await admin
+    .from("media")
+    .select("id, event_id, file_type, storage_path, medya_kategori_kaynak, oto_islendi")
+    .eq("id", mediaId)
+    .maybeSingle();
+  if (!m) return { ok: false, kategori: null };
+
+  // Admin elle ayarladıysa otomatik işlem ezmez.
+  if (m.medya_kategori_kaynak === "admin") {
+    return { ok: true, kategori: null, zatenIslendi: true };
   }
-  await admin.from("media").update(yama).eq("id", mediaId);
+
+  const simdi = new Date().toISOString();
+
+  // Video → her zaman 'video' (KVKK onayı gerekmez; yüz işlenmez).
+  if (m.file_type === "video") {
+    await admin
+      .from("media")
+      .update({
+        medya_kategori: "video",
+        medya_kategori_kaynak: "oto",
+        yuz_sayisi: null,
+        oto_islendi: true,
+        oto_islendi_at: simdi,
+      })
+      .eq("id", mediaId);
+    return { ok: true, kategori: "video" };
+  }
+
+  // Foto → KVKK onayı yoksa kategorilemeden "işlendi" işaretle (yüz işlenmez).
+  const onay = await etkinlikOnayDurum(m.event_id as string);
+  if (!onay) {
+    await admin
+      .from("media")
+      .update({ oto_islendi: true, oto_islendi_at: simdi })
+      .eq("id", mediaId);
+    return { ok: true, kategori: null, beklemede: true };
+  }
+
+  // Onaylı → lokal yüz tespiti.
+  const buf = await medyaBaytlari(m.storage_path as string);
+  let kategori: string | null = null;
+  let yuz: number | null = null;
+  if (buf) {
+    const sonuc = await yuzTespit(buf);
+    if (sonuc) {
+      kategori = sonuc.kategori; // 'tekli' | 'toplu'
+      yuz = sonuc.yuzSayisi;
+    }
+  }
+  await admin
+    .from("media")
+    .update({
+      medya_kategori: kategori, // tespit başarısızsa null kalır (admin override edebilir)
+      medya_kategori_kaynak: kategori ? "oto" : null,
+      yuz_sayisi: yuz,
+      oto_islendi: true,
+      oto_islendi_at: simdi,
+    })
+    .eq("id", mediaId);
+  return { ok: true, kategori };
 }
 
-// Admin kategori override (kaynak='admin' olur; AI yeniden çalışsa bile korunur).
-export async function kategoriDegistir(
-  mediaId: string,
-  kategori: string | null,
-): Promise<boolean> {
+// ---- Admin override ----
+export async function kategoriDegistir(mediaId: string, kategori: string | null): Promise<boolean> {
   const admin = createAdminClient();
   const { error } = await admin
     .from("media")
-    .update({ ai_kategori: kategori, ai_kategori_kaynak: "admin" })
+    .update({
+      medya_kategori: kategori,
+      medya_kategori_kaynak: kategori ? "admin" : null,
+      oto_islendi: true,
+    })
     .eq("id", mediaId);
   return !error;
 }
 
-// İmzalı URL haritası.
+// ---- Public uç güvenliği: medya bu slug'lı aktif etkinliğe mi ait? ----
+export async function medyaSlugDogrula(
+  slug: string,
+  mediaId: string,
+): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data: ev } = await admin
+    .from("events")
+    .select("id")
+    .ilike("slug", slug)
+    .eq("status", "aktif")
+    .maybeSingle();
+  if (!ev) return false;
+  const { data: m } = await admin
+    .from("media")
+    .select("id")
+    .eq("id", mediaId)
+    .eq("event_id", ev.id as string)
+    .maybeSingle();
+  return !!m;
+}
+
+// ---- İmzalı URL haritası ----
 async function imzaliUrlHaritasi(paths: string[]): Promise<Map<string, string>> {
   const harita = new Map<string, string>();
   const temiz = paths.filter(Boolean);
   if (temiz.length === 0) return harita;
   const admin = createAdminClient();
-  const { data } = await admin.storage
-    .from(MEDYA_BUCKET)
-    .createSignedUrls(temiz, IMZA_OMUR_SN);
+  const { data } = await admin.storage.from(MEDYA_BUCKET).createSignedUrls(temiz, IMZA_OMUR_SN);
   for (const item of data ?? [])
     if (item.path && item.signedUrl) harita.set(item.path, item.signedUrl);
   return harita;
 }
 
-// Ham analiz satırı (F5 seçimi de kullanır — URL'siz hızlı sürüm).
-export interface HamAnaliz {
-  id: string;
-  storage_path: string;
-  kategori: string | null;
-  kalite_skor: number | null;
-  bulanik: boolean;
-  karanlik: boolean;
-  phash: string | null;
-  created_at: string;
-}
-export async function analizHamListe(eventId: string): Promise<HamAnaliz[]> {
+// ---- Admin UI: tam medya listesi (URL'li) ----
+export async function medyaListesi(eventId: string): Promise<MedyaFoto[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("media")
     .select(
-      "id, storage_path, ai_kategori, ai_kalite_skor, ai_bulanik, ai_karanlik, ai_phash, created_at",
+      "id, storage_path, file_type, medya_kategori, medya_kategori_kaynak, yuz_sayisi, oto_islendi, guest_name, created_at",
     )
     .eq("event_id", eventId)
-    .eq("file_type", "fotograf")
-    .eq("ai_analiz_durum", "analiz_edildi")
-    .order("created_at", { ascending: true });
-  return (data ?? []).map((m) => ({
+    .order("created_at", { ascending: false });
+  const rows = data ?? [];
+  const harita = await imzaliUrlHaritasi(rows.map((m) => m.storage_path as string));
+  return rows.map((m) => ({
     id: m.id as string,
-    storage_path: m.storage_path as string,
-    kategori: (m.ai_kategori as string) ?? null,
-    kalite_skor: m.ai_kalite_skor != null ? Number(m.ai_kalite_skor) : null,
-    bulanik: !!m.ai_bulanik,
-    karanlik: !!m.ai_karanlik,
-    phash: (m.ai_phash as string) ?? null,
+    url: harita.get(m.storage_path as string) ?? null,
+    file_type: m.file_type as "fotograf" | "video",
+    kategori: (m.medya_kategori as string) ?? null,
+    kategori_kaynak: (m.medya_kategori_kaynak as string) ?? null,
+    yuz_sayisi: m.yuz_sayisi != null ? Number(m.yuz_sayisi) : null,
+    oto_islendi: !!m.oto_islendi,
+    guest_name: (m.guest_name as string) ?? null,
     created_at: m.created_at as string,
   }));
-}
-
-// phash'lere göre benzer grupları işaretle. Aynı gruptaki en yüksek kaliteli
-// dışındakiler "yinelenen" sayılır. (Hem F4 UI hem F5 eleme için.)
-export function gruplaBenzer<T extends { id: string; phash: string | null; kalite_skor: number | null }>(
-  liste: T[],
-): Map<string, { grup: number; yinelenen: boolean }> {
-  const sonuc = new Map<string, { grup: number; yinelenen: boolean }>();
-  const gruplar: T[][] = [];
-  for (const item of liste) {
-    let yerlesti = false;
-    for (const g of gruplar) {
-      const ornek = g[0];
-      const mesafe = hammingHex(item.phash, ornek.phash);
-      if (mesafe <= BENZER_ESIK) {
-        g.push(item);
-        yerlesti = true;
-        break;
-      }
-    }
-    if (!yerlesti) gruplar.push([item]);
-  }
-  gruplar.forEach((g, gi) => {
-    // Gruptaki en yüksek kaliteli "ana" foto; diğerleri yinelenen.
-    let enIyiId = g[0].id;
-    let enIyiSkor = g[0].kalite_skor ?? -1;
-    for (const item of g) {
-      if ((item.kalite_skor ?? -1) > enIyiSkor) {
-        enIyiSkor = item.kalite_skor ?? -1;
-        enIyiId = item.id;
-      }
-    }
-    for (const item of g) {
-      sonuc.set(item.id, { grup: gi, yinelenen: g.length > 1 && item.id !== enIyiId });
-    }
-  });
-  return sonuc;
-}
-
-// Ayrıca kesin yinelenenleri (çok yakın) ayrı işaretlemek istersek:
-export function kesinYinelenenMi(a: string | null, b: string | null): boolean {
-  return hammingHex(a, b) <= YINELENEN_ESIK;
-}
-
-// ---- F4 UI için tam analiz listesi (URL'li + gruplu) ----
-export async function analizListesi(eventId: string): Promise<AnalizFoto[]> {
-  const ham = await analizHamListe(eventId);
-  const harita = await imzaliUrlHaritasi(ham.map((m) => m.storage_path));
-  const gruplama = gruplaBenzer(ham);
-  // Admin override bilgisini de almak için kaynak alanını ayrı çekiyoruz.
-  const admin = createAdminClient();
-  const { data: kaynaklar } = await admin
-    .from("media")
-    .select("id, ai_kategori_kaynak")
-    .in(
-      "id",
-      ham.map((m) => m.id),
-    );
-  const kaynakMap = new Map(
-    (kaynaklar ?? []).map((k) => [k.id as string, (k.ai_kategori_kaynak as string) ?? null]),
-  );
-
-  return ham.map((m) => {
-    const g = gruplama.get(m.id);
-    return {
-      id: m.id,
-      url: harita.get(m.storage_path) ?? null,
-      kategori: m.kategori,
-      kategori_kaynak: kaynakMap.get(m.id) ?? null,
-      bulanik: m.bulanik,
-      karanlik: m.karanlik,
-      kalite_skor: m.kalite_skor,
-      phash: m.phash,
-      grup_id: g?.grup ?? null,
-      yinelenen: g?.yinelenen ?? false,
-      created_at: m.created_at,
-    };
-  });
 }

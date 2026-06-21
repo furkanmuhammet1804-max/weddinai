@@ -24,6 +24,7 @@ import {
   QrCode,
   Share2,
   Clock,
+  GalleryHorizontalEnd,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
@@ -109,6 +110,26 @@ export function MusteriPanel({
     } catch {
       setListe((o) =>
         o.map((x) => (x.id === m.id ? { ...x, is_favorite: !yeni } : x)),
+      );
+    }
+  }
+
+  // Bir fotoğrafı "albüme aday" işaretler/kaldırır (iyimser).
+  async function albumAdayToggle(m: OdaMedya) {
+    const yeni = !m.album_aday;
+    setListe((o) =>
+      o.map((x) => (x.id === m.id ? { ...x, album_aday: yeni } : x)),
+    );
+    try {
+      const res = await fetch("/api/oda/album-aday", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, mediaId: m.id, aday: yeni }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setListe((o) =>
+        o.map((x) => (x.id === m.id ? { ...x, album_aday: !yeni } : x)),
       );
     }
   }
@@ -477,6 +498,7 @@ export function MusteriPanel({
                           onIndir={() => tekIndir(m, i)}
                           onSil={() => silMedya(m)}
                           onFavori={() => favoriToggle(m)}
+                          onAlbumAday={() => albumAdayToggle(m)}
                           onShowroom={(talep) =>
                             setListe((o) =>
                               o.map((x) =>
@@ -920,6 +942,7 @@ function MedyaKart({
   onIndir,
   onSil,
   onFavori,
+  onAlbumAday,
   onShowroom,
 }: {
   slug: string;
@@ -931,6 +954,7 @@ function MedyaKart({
   onIndir: () => void;
   onSil: () => void;
   onFavori: () => void;
+  onAlbumAday: () => void;
   onShowroom: (talep: boolean) => void;
 }) {
   const [kaydediyor, setKaydediyor] = useState(false);
@@ -1102,6 +1126,26 @@ function MedyaKart({
             </button>
           )}
         </div>
+        {medya.file_type === "fotograf" && (
+          <button
+            type="button"
+            onClick={onAlbumAday}
+            disabled={secimModu}
+            title={
+              medya.album_aday
+                ? "Albüm adayı — yöneticinin göreceği öneri (kaldırmak için dokun)"
+                : "Bu fotoğrafın albüme girmesini öner"
+            }
+            className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              medya.album_aday
+                ? "bg-accent/15 text-accent"
+                : "border border-border text-foreground/60 hover:border-accent hover:text-accent"
+            }`}
+          >
+            <GalleryHorizontalEnd className="h-3.5 w-3.5" />
+            {medya.album_aday ? "Albüm adayı ✓" : "Albüme aday göster"}
+          </button>
+        )}
       </div>
     </div>
   );

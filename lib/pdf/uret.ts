@@ -1,16 +1,25 @@
 // =============================================================
 // SUNUCU TARAFI PDF ÜRETİMİ — pdfkit (saf JS, serverless-uyumlu).
-// Hatıra Defteri (F3) ve Albüm (F5) için. Türkçe için gömülü tr.ttf.
+// Hatıra Defteri (F3) ve Dijital Albüm (F5) için LÜKS tasarım:
+// krem/fildişi zemin, altın detaylar, büyük tipografi, tam sayfa görseller,
+// bölüm kapakları — "kahve masası kitabı" / profesyonel düğün albümü hissi.
+// Türkçe için gömülü tr.ttf.
 // =============================================================
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import { BOLUM_DUZEN } from "@/lib/album/sabit";
-import type { Album } from "@/lib/album/veri";
+import type { Album, AlbumFoto } from "@/lib/album/veri";
 
 const FONT_PATH = path.join(process.cwd(), "assets", "fonts", "tr.ttf");
-const ALTIN = "#b8860b";
-const MUT = "#78716c";
+
+// ---- Lüks palet ----
+const KREM = "#FBF7EF";
+const FILDISI = "#F1E7D5";
+const ALTIN = "#B8860B";
+const ALTIN_ACIK = "#C9A24B";
+const KAHVE = "#3B312A";
+const MUT = "#8A7E6F";
 
 function fontKayit(doc: PDFKit.PDFDocument) {
   try {
@@ -18,7 +27,7 @@ function fontKayit(doc: PDFKit.PDFDocument) {
     doc.registerFont("tr", buf);
     doc.font("tr");
   } catch {
-    doc.font("Helvetica"); // font bulunamazsa varsayılan (Türkçe kısıtlı)
+    doc.font("Helvetica");
   }
 }
 
@@ -55,129 +64,298 @@ function trTarih(iso: string | null): string {
   }
 }
 
+// ---- Ortak çizim yardımcıları ----
+function zeminBoya(doc: PDFKit.PDFDocument, renk = KREM) {
+  doc.save();
+  doc.rect(0, 0, doc.page.width, doc.page.height).fill(renk);
+  doc.restore();
+  doc.fillColor(KAHVE);
+}
+
+function yeniSayfa(doc: PDFKit.PDFDocument, renk = KREM) {
+  doc.addPage();
+  zeminBoya(doc, renk);
+}
+
+// Sayfa kenarına ince çift altın çerçeve (kapak sayfaları için).
+function cerceve(doc: PDFKit.PDFDocument, inset = 26) {
+  const W = doc.page.width;
+  const H = doc.page.height;
+  doc.save();
+  doc.lineWidth(1.4).strokeColor(ALTIN);
+  doc.rect(inset, inset, W - 2 * inset, H - 2 * inset).stroke();
+  doc.lineWidth(0.6).strokeColor(ALTIN_ACIK);
+  doc.rect(inset + 5, inset + 5, W - 2 * inset - 10, H - 2 * inset - 10).stroke();
+  doc.restore();
+}
+
+// Ortalanmış altın ayraç + küçük elmas süs.
+function altinAyrac(doc: PDFKit.PDFDocument, y: number, genislik = 120) {
+  const orta = doc.page.width / 2;
+  doc.save();
+  doc.lineWidth(0.8).strokeColor(ALTIN);
+  doc.moveTo(orta - genislik / 2, y).lineTo(orta - 10, y).stroke();
+  doc.moveTo(orta + 10, y).lineTo(orta + genislik / 2, y).stroke();
+  // elmas
+  doc.fillColor(ALTIN);
+  doc.moveTo(orta, y - 4).lineTo(orta + 4, y).lineTo(orta, y + 4).lineTo(orta - 4, y).fill();
+  doc.restore();
+}
+
 // ---- F3: Hatıra Defteri PDF ----
 export interface HatiraPdfGirdi {
   baslik: string;
   ciftBaslik: string; // event title (çift)
   tarih: string | null; // published_at
-  icerik: string | null; // AI taslak/final
+  icerik: string | null; // AI taslak/final (hoş geldiniz / hikâye)
   mesajlar: { ad: string | null; mesaj: string }[];
 }
 
 export async function hatiraPdf(g: HatiraPdfGirdi): Promise<Buffer> {
-  const doc = new PDFDocument({ size: "A4", margin: 56 });
+  const doc = new PDFDocument({ size: "A4", margin: 0, bufferPages: true });
   const bitti = topla(doc);
   fontKayit(doc);
-  const W = doc.page.width - 112;
+  const W = doc.page.width;
+  const KENAR = 64;
+  const IC = W - 2 * KENAR;
 
-  // Kapak
-  doc.moveDown(6);
-  doc.fontSize(11).fillColor(ALTIN).text("HATIRA DEFTERİ", { align: "center", characterSpacing: 4 });
-  doc.moveDown(1);
-  doc.fontSize(32).fillColor("#1c1917").text(g.ciftBaslik, { align: "center" });
+  // ---- Kapak ----
+  zeminBoya(doc, KREM);
+  cerceve(doc, 26);
+  doc.fillColor(ALTIN).fontSize(12).text("HATIRA DEFTERİ", 0, 150, {
+    align: "center",
+    characterSpacing: 6,
+  });
+  altinAyrac(doc, 184);
+  doc.fillColor(KAHVE).fontSize(40).text(g.ciftBaslik, KENAR, 220, {
+    width: IC,
+    align: "center",
+  });
   if (g.baslik && g.baslik !== g.ciftBaslik) {
-    doc.moveDown(0.4).fontSize(15).fillColor(MUT).text(g.baslik, { align: "center" });
+    doc.moveDown(0.5).fillColor(MUT).fontSize(16).text(g.baslik, KENAR, undefined, {
+      width: IC,
+      align: "center",
+    });
   }
   if (g.tarih) {
-    doc.moveDown(1).fontSize(12).fillColor(MUT).text(trTarih(g.tarih), { align: "center", characterSpacing: 2 });
+    doc.fillColor(ALTIN).fontSize(13).text(trTarih(g.tarih), KENAR, 360, {
+      width: IC,
+      align: "center",
+      characterSpacing: 3,
+    });
   }
+  doc.fillColor(MUT).fontSize(11).text("hoş geldiniz", KENAR, doc.page.height - 130, {
+    width: IC,
+    align: "center",
+    characterSpacing: 2,
+  });
 
-  // İçerik (AI narrative) — basit Markdown başlık desteği
-  if (g.icerik) {
-    doc.addPage();
+  // ---- Hoş geldiniz / hikâye (AI içerik) ----
+  if (g.icerik && g.icerik.trim()) {
+    yeniSayfa(doc, KREM);
+    doc.fillColor(ALTIN).fontSize(11).text("HOŞ GELDİNİZ", KENAR, 80, {
+      width: IC,
+      align: "center",
+      characterSpacing: 5,
+    });
+    altinAyrac(doc, 108);
+    doc.moveDown(2);
+    doc.x = KENAR;
     for (const ham of g.icerik.split(/\r?\n/)) {
       const t = ham.trim();
-      if (!t) { doc.moveDown(0.5); continue; }
+      if (!t) {
+        doc.moveDown(0.6);
+        continue;
+      }
       if (t.startsWith("## ")) {
-        doc.moveDown(0.6).fontSize(17).fillColor("#1c1917").text(t.slice(3), { width: W });
+        doc.moveDown(0.6).fillColor(KAHVE).fontSize(18).text(t.slice(3), KENAR, doc.y, { width: IC, align: "center" });
         doc.moveDown(0.2);
       } else if (t.startsWith("# ")) {
-        doc.moveDown(0.6).fontSize(20).fillColor("#1c1917").text(t.slice(2), { width: W });
+        doc.moveDown(0.6).fillColor(KAHVE).fontSize(22).text(t.slice(2), KENAR, doc.y, { width: IC, align: "center" });
         doc.moveDown(0.2);
       } else {
-        doc.fontSize(12).fillColor("#3a3530").text(t, { width: W, align: "left" });
+        doc.fillColor("#4A4036").fontSize(12.5).text(t, KENAR, doc.y, {
+          width: IC,
+          align: "justify",
+          lineGap: 5,
+        });
       }
+      if (doc.y > doc.page.height - 120) yeniSayfa(doc, KREM);
     }
   }
 
-  // Tüm mesajlar + sahipleri
+  // ---- Tebrik mesajları ----
   if (g.mesajlar.length > 0) {
-    doc.addPage();
-    doc.fontSize(20).fillColor("#1c1917").text("Misafir Mesajları", { width: W });
-    doc.moveDown(0.8);
+    yeniSayfa(doc, FILDISI);
+    doc.fillColor(ALTIN).fontSize(11).text("TEBRİK MESAJLARI", KENAR, 80, {
+      width: IC,
+      align: "center",
+      characterSpacing: 5,
+    });
+    altinAyrac(doc, 108);
+    doc.moveDown(2.2);
+    doc.x = KENAR;
     for (const m of g.mesajlar) {
-      doc.fontSize(12).fillColor("#3a3530").text(m.mesaj, { width: W });
-      doc.fontSize(11).fillColor(ALTIN).text(`— ${m.ad || "İsimsiz"}`, { width: W });
-      doc.moveDown(0.8);
+      if (doc.y > doc.page.height - 150) {
+        yeniSayfa(doc, FILDISI);
+        doc.x = KENAR;
+        doc.y = 90;
+      }
+      doc.fillColor("#4A4036").fontSize(13).text(`“${m.mesaj}”`, KENAR + 16, doc.y, {
+        width: IC - 32,
+        align: "center",
+        lineGap: 4,
+      });
+      doc.moveDown(0.3);
+      doc.fillColor(ALTIN).fontSize(11.5).text(`— ${m.ad || "İsimsiz Misafir"}`, KENAR + 16, doc.y, {
+        width: IC - 32,
+        align: "center",
+      });
+      doc.moveDown(0.5);
+      altinAyrac(doc, doc.y, 70);
+      doc.moveDown(1.2);
     }
   }
 
+  // ---- Teşekkür sayfası ----
+  yeniSayfa(doc, KREM);
+  cerceve(doc, 26);
+  doc.fillColor(KAHVE).fontSize(34).text("Teşekkürler", KENAR, doc.page.height / 2 - 70, {
+    width: IC,
+    align: "center",
+  });
+  altinAyrac(doc, doc.page.height / 2 - 14);
+  doc.fillColor(MUT).fontSize(13).text(
+    "Bu özel günümüzde yanımızda olduğunuz ve\nanılarımıza dokunduğunuz için minnettarız.",
+    KENAR,
+    doc.page.height / 2 + 6,
+    { width: IC, align: "center", lineGap: 4 },
+  );
+  doc.fillColor(ALTIN).fontSize(13).text(g.ciftBaslik, KENAR, doc.page.height / 2 + 80, {
+    width: IC,
+    align: "center",
+    characterSpacing: 1,
+  });
+
+  sayfaNumaralari(doc, 1); // kapaktan sonra numaralandır
   doc.end();
   return bitti;
 }
 
-// ---- F5: Albüm PDF ----
+// ---- F5: Dijital Albüm PDF ----
 export async function albumPdf(album: Album): Promise<Buffer> {
-  const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
+  const doc = new PDFDocument({ size: "A4", margin: 0, bufferPages: true });
   const bitti = topla(doc);
   fontKayit(doc);
-  const W = doc.page.width - 80;
-  const H = doc.page.height - 80;
+  const W = doc.page.width;
+  const H = doc.page.height;
 
-  // Kapak
+  // ---- Kapak (tam sayfa görsel + altın başlık bandı) ----
   const kapakFoto =
     album.fotograflar.find((f) => f.media_id === album.kapak_media_id) ?? album.fotograflar[0];
   const kapakBuf = await gorselBaytlari(kapakFoto?.url ?? null);
-  if (kapakBuf) {
-    try { doc.image(kapakBuf, 40, 40, { fit: [W, H - 120], align: "center", valign: "center" }); } catch { /* atla */ }
-  }
-  doc.moveDown(0);
-  doc.y = doc.page.height - 110;
-  doc.fontSize(28).fillColor("#1c1917").text(album.baslik, 40, doc.y, { width: W, align: "center" });
-  doc.fontSize(12).fillColor(MUT).text(trTarih(album.published_at), { width: W, align: "center" });
 
-  // Bölümler (hikâye akışı sırasıyla)
-  const gruplar = new Map<string, typeof album.fotograflar>();
+  zeminBoya(doc, KAHVE);
+  if (kapakBuf) {
+    try {
+      doc.image(kapakBuf, 0, 0, { cover: [W, H], align: "center", valign: "center" });
+    } catch {
+      /* atla */
+    }
+  }
+  // Alt karartma bandı (başlık okunsun)
+  doc.save();
+  doc.fillColor(KAHVE).fillOpacity(0.55);
+  doc.rect(0, H - 230, W, 230).fill();
+  doc.restore();
+  doc.fillColor("#F6EFE2").fontSize(12).text("DÜĞÜN ALBÜMÜ", 0, H - 178, {
+    align: "center",
+    characterSpacing: 6,
+  });
+  altinAyrac(doc, H - 150);
+  doc.fillColor("#FFFFFF").fontSize(34).text(album.baslik, 50, H - 132, {
+    width: W - 100,
+    align: "center",
+  });
+  if (album.published_at) {
+    doc.fillColor(ALTIN_ACIK).fontSize(13).text(trTarih(album.published_at), 50, H - 78, {
+      width: W - 100,
+      align: "center",
+      characterSpacing: 2,
+    });
+  }
+
+  // ---- Bölümlere ayır (hikâye akışı sırasıyla) ----
+  const gruplar = new Map<string, AlbumFoto[]>();
   for (const f of album.fotograflar) {
     const b = f.bolum ?? "Diğer";
     const arr = gruplar.get(b);
-    if (arr) arr.push(f); else gruplar.set(b, [f]);
+    if (arr) arr.push(f);
+    else gruplar.set(b, [f]);
   }
-  const sirali = [...gruplar.entries()].sort(
-    (a, b) => (BOLUM_DUZEN.indexOf(a[0]) < 0 ? 99 : BOLUM_DUZEN.indexOf(a[0])) -
-              (BOLUM_DUZEN.indexOf(b[0]) < 0 ? 99 : BOLUM_DUZEN.indexOf(b[0])),
-  );
+  const sirali = [...gruplar.entries()].sort((a, b) => {
+    const ia = BOLUM_DUZEN.indexOf(a[0]);
+    const ib = BOLUM_DUZEN.indexOf(b[0]);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
 
-  const KOL = 2, GEN = (W - 16) / KOL, YUK = 200;
   for (const [bolum, fotolar] of sirali) {
-    doc.addPage();
-    doc.fontSize(20).fillColor(ALTIN).text(bolum, { width: W });
-    doc.moveDown(0.6);
-    let i = 0;
+    // Bölüm kapağı (krem + büyük başlık)
+    yeniSayfa(doc, KREM);
+    cerceve(doc, 26);
+    doc.fillColor(ALTIN).fontSize(12).text("BÖLÜM", 0, H / 2 - 70, {
+      align: "center",
+      characterSpacing: 6,
+    });
+    doc.fillColor(KAHVE).fontSize(38).text(bolum, 50, H / 2 - 36, {
+      width: W - 100,
+      align: "center",
+    });
+    altinAyrac(doc, H / 2 + 24);
+    doc.fillColor(MUT).fontSize(11).text(`${fotolar.length} kare`, 50, H / 2 + 36, {
+      width: W - 100,
+      align: "center",
+      characterSpacing: 2,
+    });
+
+    // Tam sayfa fotoğraflar (krem zemin + ince altın çerçeve)
     for (const f of fotolar) {
       const buf = await gorselBaytlari(f.url);
       if (!buf) continue;
-      const kol = i % KOL;
-      if (kol === 0 && doc.y + YUK > doc.page.height - 50) doc.addPage();
-      const x = 40 + kol * (GEN + 16);
-      const y = doc.y;
-      try { doc.image(buf, x, y, { fit: [GEN, YUK], align: "center", valign: "center" }); } catch { continue; }
-      if (kol === KOL - 1) doc.y = y + YUK + 14;
-      i++;
+      yeniSayfa(doc, KREM);
+      const m = 42;
+      const cw = W - 2 * m;
+      const chh = H - 2 * m - 18; // alt sayfa no için pay
+      try {
+        doc.image(buf, m, m, { fit: [cw, chh], align: "center", valign: "center" });
+      } catch {
+        continue;
+      }
+      // ince altın çerçeve (görsel kutusunun kenarında)
+      doc.save();
+      doc.lineWidth(0.8).strokeColor(ALTIN_ACIK);
+      doc.rect(m - 6, m - 6, cw + 12, chh + 12).stroke();
+      doc.restore();
     }
-    if (i % KOL !== 0) doc.y += YUK + 14;
   }
 
-  // Sayfa numaraları
-  const aralik = doc.bufferedPageRange();
-  for (let p = aralik.start; p < aralik.start + aralik.count; p++) {
-    doc.switchToPage(p);
-    doc.fontSize(9).fillColor(MUT).text(
-      `${p - aralik.start + 1} / ${aralik.count}`,
-      40, doc.page.height - 28, { width: W, align: "center" },
-    );
-  }
-
+  sayfaNumaralari(doc, 1); // kapaktan sonra
   doc.end();
   return bitti;
+}
+
+// Kapak (index 0) hariç tüm sayfalara altın sayfa numarası.
+function sayfaNumaralari(doc: PDFKit.PDFDocument, baslangicIndex: number) {
+  const aralik = doc.bufferedPageRange();
+  for (let p = aralik.start; p < aralik.start + aralik.count; p++) {
+    if (p - aralik.start < baslangicIndex) continue;
+    doc.switchToPage(p);
+    const no = p - aralik.start + 1 - baslangicIndex;
+    doc.fillColor(ALTIN).fontSize(10).text(
+      String(no),
+      0,
+      doc.page.height - 30,
+      { width: doc.page.width, align: "center", characterSpacing: 1 },
+    );
+  }
 }

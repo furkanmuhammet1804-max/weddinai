@@ -1,6 +1,7 @@
 "use client";
 
-// Admin — AI Medya Merkezi oda listesi (Özellik 4).
+// Admin — AI Medya Merkezi oda listesi (Özellik 4 revizyonu).
+// Lokal kategori (tekli/toplu/video) + KVKK onay durumu (✅/❌).
 import Link from "next/link";
 import { Images, ShieldCheck, ShieldAlert, ArrowRight } from "lucide-react";
 import type { MedyaMerkeziSatir } from "@/lib/medya/veri";
@@ -14,10 +15,10 @@ export function MedyaMerkeziListe({ liste }: { liste: MedyaMerkeziSatir[] }) {
         </span>
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight">
-            AI Medya Merkezi
+            Medya Merkezi
           </h1>
           <p className="text-sm text-muted-foreground">
-            Fotoğrafları kategoriye ayırın; bulanık/karanlık/yinelenen kareleri bulun.
+            Fotoğraflar yüklenir yüklenmez tekli / toplu / video olarak otomatik ayrılır.
           </p>
         </div>
       </div>
@@ -28,9 +29,9 @@ export function MedyaMerkeziListe({ liste }: { liste: MedyaMerkeziSatir[] }) {
             <thead>
               <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Oda</th>
-                <th className="px-4 py-3 text-right font-medium">Fotoğraf</th>
-                <th className="px-4 py-3 text-right font-medium">Analiz</th>
-                <th className="px-4 py-3 font-medium">KVKK</th>
+                <th className="px-4 py-3 text-right font-medium">Medya</th>
+                <th className="px-4 py-3 text-right font-medium">Kategorilenen</th>
+                <th className="px-4 py-3 font-medium">KVKK Onayı</th>
                 <th className="px-4 py-3 text-right font-medium">İşlem</th>
               </tr>
             </thead>
@@ -51,19 +52,22 @@ export function MedyaMerkeziListe({ liste }: { liste: MedyaMerkeziSatir[] }) {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
-                    {s.foto_sayisi}
+                    {s.toplam}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right text-muted-foreground">
-                    {s.analiz_edilen}/{s.foto_sayisi}
+                    {s.kategorilenen}/{s.toplam}
+                    {s.bekleyen > 0 && (
+                      <span className="ml-1 text-amber-600">· {s.bekleyen} bekliyor</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {s.ai_medya_onay ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                        <ShieldCheck className="h-3.5 w-3.5" /> Onaylı
+                        <ShieldCheck className="h-3.5 w-3.5" /> ✅ Onaylandı
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                        <ShieldAlert className="h-3.5 w-3.5" /> Onaysız
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        <ShieldAlert className="h-3.5 w-3.5" /> ❌ Onay Bekleniyor
                       </span>
                     )}
                   </td>
