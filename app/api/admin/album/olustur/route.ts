@@ -1,6 +1,7 @@
 // POST /api/admin/album/olustur — admin albümü oluşturur (Özellik 5).
-// Otomatik DEĞİL; yalnız admin'in eylemiyle. AI seçimi (kalite + tekrar eleme
-// + kategori dengesi) F4 verisinden yapılır. YALNIZCA ADMIN.
+// Otomatik DEĞİL; yalnız admin'in eylemiyle. AI seçimi YOKTUR: albüm,
+// müşterinin işaretlediği adaylar + favorilerden tohumlanır, kürasyonu
+// admin elle yapar (kapak/bölüm/sıra). YALNIZCA ADMIN.
 import { NextResponse } from "next/server";
 import { adminOturumGecerli } from "@/lib/admin/oturum";
 import { albumOlusturSema } from "@/lib/album/sema";

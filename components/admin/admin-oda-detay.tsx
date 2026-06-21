@@ -63,6 +63,8 @@ export function AdminOdaDetay({
   const [qr, setQr] = useState("");
 
   useEffect(() => {
+    // Tarayıcı-yalnız okuma; SSR'de window yok, mount sonrası kasıtlı.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrigin(window.location.origin);
   }, []);
 

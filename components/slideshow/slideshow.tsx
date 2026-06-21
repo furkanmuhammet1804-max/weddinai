@@ -78,6 +78,8 @@ export function Slideshow({
   // İndeks sınır güvenliği
   useEffect(() => {
     if (fotograflar.length === 0) return;
+    // Liste küçülürse aktif indeksi sınıra çek; kasıtlı.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAktif((i) => (i >= fotograflar.length ? fotograflar.length - 1 : i));
   }, [fotograflar.length]);
 

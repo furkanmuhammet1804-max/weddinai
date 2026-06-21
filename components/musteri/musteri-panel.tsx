@@ -134,8 +134,10 @@ export function MusteriPanel({
     }
   }
 
-  // Props değişince (router.refresh sonrası) listeyi tazele
+  // Props değişince (router.refresh sonrası) listeyi tazele.
   useEffect(() => {
+    // Sunucu verisini yerel duruma senkronla; prop değişimine tepki kasıtlı.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setListe(medyalar);
     setGosterilen(GOSTER_ADIM);
   }, [medyalar]);
@@ -158,6 +160,8 @@ export function MusteriPanel({
 
   // Favori filtresi değişince baştan göster.
   useEffect(() => {
+    // Filtre değişiminde sayfalamayı sıfırla; kasıtlı.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGosterilen(GOSTER_ADIM);
   }, [favoriFiltre]);
 
@@ -657,6 +661,8 @@ function QrModal({ slug, onKapat }: { slug: string; onKapat: () => void }) {
   const [kopya, setKopya] = useState(false);
 
   useEffect(() => {
+    // Tarayıcı-yalnız okuma; SSR'de window yok, mount sonrası kasıtlı.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOrigin(window.location.origin);
   }, []);
   const misafirLink = origin ? `${origin}/e/${slug}` : "";

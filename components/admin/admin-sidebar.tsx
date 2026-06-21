@@ -122,6 +122,8 @@ export function AdminMobilMenu() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Rota değişince mobil menüyü kapat; prop değişimine tepki kasıtlı.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setAcik(false);
   }, [pathname]);
 

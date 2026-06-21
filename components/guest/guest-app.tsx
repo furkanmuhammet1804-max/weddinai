@@ -415,6 +415,8 @@ function YuklemeAlani({
     if (!devam) {
       yukleniyorRef.current = false;
       const hepsiHata = dosyalar.every((d) => d.durum === "hata");
+      // Yükleme ilerlemesine göre adım geçişi; effect içi kasıtlı.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (!hepsiHata) setAdim("tamam");
     }
   }, [dosyalar, adim]);
@@ -889,7 +891,7 @@ function AniBirak({
             <motion.span
               key={i}
               className="w-1 rounded-full bg-rose"
-              animate={{ height: [6, Math.random() * 26 + 8, 6] }}
+              animate={{ height: [6, 8 + Math.abs(Math.sin(i * 1.7)) * 24, 6] }}
               transition={{ duration: 0.7, repeat: Infinity, delay: i * 0.05 }}
             />
           ))}

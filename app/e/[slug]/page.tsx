@@ -25,8 +25,11 @@ export default async function GuestPage(props: PageProps<"/e/[slug]">) {
   }
 
   // Arşivlenmiş VEYA süresi dolmuş etkinlik: sayfa açılır ama yükleme kapalı.
+  // Sunucu bileşeni; istek-anı zaman karşılaştırması kasıtlı (purity istisnası).
+  // eslint-disable-next-line react-hooks/purity
+  const simdi = Date.now();
   const suresiDoldu =
-    !!ev.expires_at && new Date(ev.expires_at as string).getTime() <= Date.now();
+    !!ev.expires_at && new Date(ev.expires_at as string).getTime() <= simdi;
   const kapali = ev.status === "arsivlendi" || suresiDoldu;
 
   return (

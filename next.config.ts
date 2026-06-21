@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/admin/hatira/pdf": ["./assets/fonts/**"],
     "/api/admin/album/pdf": ["./assets/fonts/**"],
+    // Lokal yüz tespiti pico kademe dosyasını runtime'da okur; serverless
+    // izlemeye dahil et yoksa Vercel'de kategorileme sessizce çalışmaz.
+    "/api/medya/otokategori": ["./assets/models/**"],
+    "/api/admin/medya/analiz": ["./assets/models/**"],
   },
 };
 

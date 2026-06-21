@@ -38,7 +38,9 @@ export function TemaSecici({
 }) {
   const [aktif, setAktif] = useState<TemaId>(VARSAYILAN_TEMA);
 
-  // İlk yüklemede gerçek temayı oku (flash-script zaten data-theme'i ayarladı)
+  // İlk yüklemede gerçek temayı oku (flash-script zaten data-theme'i ayarladı).
+  // Tarayıcı-yalnız okuma; mount sonrası kasıtlı.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setAktif(mevcutTema()), []);
 
   function sec(id: TemaId) {
