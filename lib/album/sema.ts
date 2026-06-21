@@ -1,0 +1,31 @@
+// AI Albüm admin uçları — Zod giriş şemaları (Güvenlik Politikası §4).
+import { z } from "zod";
+import { PAKET_DEGERLER } from "@/lib/album/sabit";
+
+export const albumOlusturSema = z.object({
+  eventId: z.string().uuid(),
+  paket: z.string().refine((v) => PAKET_DEGERLER.includes(v), {
+    message: "Geçersiz paket",
+  }),
+  ozelAdet: z.number().int().min(1).max(500).nullable().optional(),
+});
+
+export const albumKaydetSema = z.object({
+  id: z.string().uuid(),
+  baslik: z.string().trim().min(1).max(120),
+  kapakMediaId: z.string().uuid().nullable(),
+  fotograflar: z
+    .array(
+      z.object({
+        media_id: z.string().uuid(),
+        bolum: z.string().max(60).nullable(),
+        sira: z.number().int().min(0),
+      }),
+    )
+    .max(500),
+});
+
+export const albumYayinlaSema = z.object({
+  id: z.string().uuid(),
+  yayinla: z.boolean(),
+});

@@ -20,6 +20,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { turEtiket } from "@/lib/etkinlik";
+import { AiOneriModal } from "@/components/ai/ai-oneri-modal";
+
+// Özellik 1 — Tebrik mesajı asistanı ton seçenekleri.
+const TEBRIK_TONLAR = [
+  { deger: "Kısa", etiket: "Kısa" },
+  { deger: "Samimi", etiket: "Samimi" },
+  { deger: "Duygusal", etiket: "Duygusal" },
+  { deger: "Resmi", etiket: "Resmi" },
+  { deger: "Komik", etiket: "Komik" },
+];
 
 const MEDYA_BUCKET = "event-media";
 const SES_BUCKET = "event-audio";
@@ -225,7 +235,12 @@ export function GuestApp({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
             >
-              <AniBirak eventId={eventId} slug={slug} kapali={kapali} />
+              <AniBirak
+                eventId={eventId}
+                slug={slug}
+                baslik={baslik}
+                kapali={kapali}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -606,10 +621,12 @@ function YuklemeAlani({
 function AniBirak({
   eventId,
   slug,
+  baslik,
   kapali,
 }: {
   eventId: string;
   slug: string;
+  baslik: string;
   kapali: boolean;
 }) {
   const [isim, setIsim] = useState("");
@@ -617,6 +634,7 @@ function AniBirak({
   const [gonderildi, setGonderildi] = useState(false);
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [hata, setHata] = useState<string | null>(null);
+  const [aiAcik, setAiAcik] = useState(false);
 
   // Ses kaydı
   const [kayitta, setKayitta] = useState(false);
@@ -758,6 +776,7 @@ function AniBirak({
   }
 
   return (
+    <>
     <div className="rounded-3xl border border-border bg-card p-6 shadow-elegant">
       <h3 className="font-display text-lg font-semibold">Bir not bırakın</h3>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -777,6 +796,14 @@ function AniBirak({
         rows={4}
         className="mt-3 w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary"
       />
+
+      <button
+        type="button"
+        onClick={() => setAiAcik(true)}
+        className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3.5 py-1.5 text-xs font-medium text-primary-deep transition-colors hover:bg-primary-soft/50"
+      >
+        <Sparkles className="h-3.5 w-3.5" /> AI ile yardım al
+      </button>
 
       {sesBlob && (
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
@@ -855,5 +882,23 @@ function AniBirak({
         </motion.div>
       )}
     </div>
+
+    {aiAcik && (
+      <AiOneriModal
+        baslik="AI ile Tebrik Mesajı"
+        altBaslik={`${baslik} için dilek önerileri`}
+        endpoint="/api/ai/tebrik-oneri"
+        secenekEtiket="Ton"
+        secenekler={TEBRIK_TONLAR}
+        govde={(ton) => ({ ton, cift_ad: baslik || null })}
+        aktarEtiket="Mesaja aktar"
+        onAktar={(metin) => {
+          setMesaj(metin);
+          setAiAcik(false);
+        }}
+        onClose={() => setAiAcik(false)}
+      />
+    )}
+    </>
   );
 }

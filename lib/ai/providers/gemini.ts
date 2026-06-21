@@ -8,6 +8,8 @@ import type {
   AiSaglayici,
   UretimSecenek,
   UretimSonuc,
+  GorselSiniflaSecenek,
+  GorselSiniflaSonuc,
 } from "@/lib/ai/providers/types";
 
 export const GEMINI_VARSAYILAN_MODEL = "gemini-2.5-flash";
@@ -121,8 +123,84 @@ async function metinUret(opts: UretimSecenek): Promise<UretimSonuc> {
   };
 }
 
+// Görsel sınıflandırma — TEK fotoğrafı verilen kategorilerden birine atar.
+// Yalnızca kategori için kullanılır (Güvenlik Politikası §5: minimum veri).
+async function gorselSinifla(
+  opts: GorselSiniflaSecenek,
+): Promise<GorselSiniflaSonuc> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY tanımlı değil.");
+  const model = opts.model ?? GEMINI_VARSAYILAN_MODEL;
+
+  const system =
+    "Sen bir düğün/etkinlik fotoğrafı sınıflandırıcısısın. Verilen fotoğrafı, izin verilen kategorilerden EN UYGUN olan tek birine ata.";
+  const user =
+    `Bu fotoğrafı şu kategorilerden birine sınıflandır: ${opts.kategoriler.join(", ")}.` +
+    ' Yalnızca şu JSON ile yanıt ver: {"kategori": "<kategori>"}';
+
+  const govde = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: opts.mimeType, data: opts.imageBase64 } },
+          { text: user },
+        ],
+      },
+    ],
+    generationConfig: {
+      maxOutputTokens: 200,
+      thinkingConfig: { thinkingBudget: 0 },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: { kategori: { type: "STRING", enum: opts.kategoriler } },
+        required: ["kategori"],
+      },
+    },
+  };
+
+  const res = await fetch(`${TABAN_URL}/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify(govde),
+  });
+  if (!res.ok) {
+    const detay = await res.text().catch(() => "");
+    throw new Error(`Gemini ${res.status}: ${detay.slice(0, 300)}`);
+  }
+  const veri = (await res.json()) as GeminiYanit;
+  if (veri.promptFeedback?.blockReason) {
+    throw new Error(`Gemini engelledi: ${veri.promptFeedback.blockReason}`);
+  }
+  const metin = (veri.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? "")
+    .join("")
+    .trim();
+
+  let kategori: string | null = null;
+  try {
+    const j = JSON.parse(metin) as { kategori?: unknown };
+    if (typeof j.kategori === "string" && opts.kategoriler.includes(j.kategori)) {
+      kategori = j.kategori;
+    }
+  } catch {
+    /* kategori null kalır */
+  }
+
+  const u = veri.usageMetadata;
+  return {
+    kategori,
+    model,
+    inputToken: u?.promptTokenCount ?? 0,
+    outputToken: (u?.candidatesTokenCount ?? 0) + (u?.thoughtsTokenCount ?? 0),
+  };
+}
+
 export const geminiSaglayici: AiSaglayici = {
   ad: "gemini",
   varsayilanModel: GEMINI_VARSAYILAN_MODEL,
   metinUret,
+  gorselSinifla,
 };

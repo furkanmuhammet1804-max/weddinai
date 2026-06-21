@@ -27,6 +27,14 @@ import {
 } from "@/lib/davetiye-tema";
 import { CiftIsim } from "@/components/davetiye/cift-isim";
 import { AiYardimModal } from "@/components/davetiye/ai-yardim-modal";
+import { AiOneriModal } from "@/components/ai/ai-oneri-modal";
+
+// Özellik 2 — Davetiye not yardımcısı kategorileri.
+const NOT_KATEGORILER = [
+  { deger: "hikaye", etiket: "Çift hikâyemiz" },
+  { deger: "aciklama", etiket: "Davetiye açıklaması" },
+  { deger: "tasarim", etiket: "Tasarım isteği" },
+];
 
 const MAKS_FOTO = 12;
 const MAKS_BAYT = 25 * 1024 * 1024; // 25 MB
@@ -67,6 +75,7 @@ export function DavetiyeSiparis() {
   const [asama, setAsama] = useState("");
   const [hata, setHata] = useState<string | null>(null);
   const [aiAcik, setAiAcik] = useState(false);
+  const [notAiAcik, setNotAiAcik] = useState(false);
 
   // AI önerisini "Özel istekler" notuna aktarır (varsa mevcut metnin altına ekler).
   function notaAktar(metin: string) {
@@ -491,9 +500,17 @@ export function DavetiyeSiparis() {
               </button>
             </div>
           </div>
-          <Alan label="Özel istekleriniz">
-            <textarea className={`${inp} min-h-28 resize-y`} value={form.notlar ?? ""} onChange={set("notlar")} placeholder="Eklemek istedikleriniz…" />
-          </Alan>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <Etiket>Özel istekleriniz</Etiket>
+            <button
+              type="button"
+              onClick={() => setNotAiAcik(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 px-3.5 py-1.5 text-xs font-medium text-primary-deep transition-colors hover:bg-primary-soft/50"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Notunuz için AI&apos;dan yardım alın
+            </button>
+          </div>
+          <textarea className={`${inp} min-h-28 resize-y`} value={form.notlar ?? ""} onChange={set("notlar")} placeholder="Eklemek istedikleriniz…" />
         </Bolum>
 
         {hata && (
@@ -526,6 +543,24 @@ export function DavetiyeSiparis() {
           tarih={trTarih(dugun.tarih) ?? trTarih(kina.tarih)}
           onAktar={notaAktar}
           onClose={() => setAiAcik(false)}
+        />
+      )}
+
+      {notAiAcik && (
+        <AiOneriModal
+          baslik="Notunuz için AI yardımı"
+          altBaslik="Çift hikâyesi, açıklama veya tasarım notu önerileri"
+          endpoint="/api/ai/davetiye-not"
+          secenekEtiket="Tür"
+          secenekler={NOT_KATEGORILER}
+          govde={(kategori) => ({
+            kategori,
+            gelin_ad: ilkAd(form.gelin_ad) || null,
+            damat_ad: ilkAd(form.damat_ad) || null,
+          })}
+          aktarEtiket="Nota aktar"
+          onAktar={notaAktar}
+          onClose={() => setNotAiAcik(false)}
         />
       )}
     </div>

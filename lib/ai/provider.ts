@@ -11,9 +11,11 @@ import type {
   AiSaglayici,
   UretimSecenek,
   UretimSonuc,
+  GorselSiniflaSecenek,
+  GorselSiniflaSonuc,
 } from "@/lib/ai/providers/types";
 
-export type { UretimSecenek, UretimSonuc };
+export type { UretimSecenek, UretimSonuc, GorselSiniflaSecenek, GorselSiniflaSonuc };
 
 export type AiProviderAd = "gemini";
 
@@ -36,4 +38,16 @@ export const VARSAYILAN_MODEL = aktifSaglayici.varsayilanModel;
 // Tek seferlik metin üretimi — aktif sağlayıcıya devreder.
 export function metinUret(opts: UretimSecenek): Promise<UretimSonuc> {
   return aktifSaglayici.metinUret(opts);
+}
+
+// Görsel sınıflandırma — aktif sağlayıcı destekliyorsa devreder.
+export function gorselSinifla(
+  opts: GorselSiniflaSecenek,
+): Promise<GorselSiniflaSonuc> {
+  if (!aktifSaglayici.gorselSinifla) {
+    throw new Error(
+      `${aktifSaglayici.ad} görsel sınıflandırmayı desteklemiyor.`,
+    );
+  }
+  return aktifSaglayici.gorselSinifla(opts);
 }
