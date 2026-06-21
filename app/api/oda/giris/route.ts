@@ -2,8 +2,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { odaOturumKur } from "@/lib/oda/oturum";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
 
 export async function POST(request: Request) {
+  // Brute-force koruması: IP başına ve IP×oda başına hız limiti (mobil giriş ile aynı).
+  const ip = istemciIp(request);
+  const ipLim = rateLimit(`oda-giris:ip:${ip}`, 10, 60_000);
+  if (!ipLim.izin) {
+    return NextResponse.json({ hata: "Çok fazla deneme. Lütfen biraz sonra tekrar deneyin." }, {
+      status: 429,
+      headers: { "Retry-After": String(ipLim.kalanSn) },
+    });
+  }
+
   let body: { slug?: string; sifre?: string };
   try {
     body = await request.json();
@@ -18,6 +29,15 @@ export async function POST(request: Request) {
       { hata: "Oda ve şifre gerekli." },
       { status: 400 },
     );
+  }
+
+  // Aynı odaya yoğun şifre denemesini sınırla (IP × oda).
+  const odaLim = rateLimit(`oda-giris:oda:${ip}:${slug.toLowerCase()}`, 5, 60_000);
+  if (!odaLim.izin) {
+    return NextResponse.json({ hata: "Çok fazla deneme. Lütfen biraz sonra tekrar deneyin." }, {
+      status: 429,
+      headers: { "Retry-After": String(odaLim.kalanSn) },
+    });
   }
 
   const admin = createAdminClient();
