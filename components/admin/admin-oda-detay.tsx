@@ -76,7 +76,6 @@ export function AdminOdaDetay({
   const misafirLink = origin ? `${origin}/e/${oda.slug}` : "";
   const showroomLink = origin ? `${origin}/showroom/${oda.slug}` : "";
   const slaytLink = origin ? `${origin}/slayt/${oda.slug}` : "";
-  const aiOnayLink = origin && onayToken ? `${origin}/ai-onay/${onayToken}` : "";
 
   useEffect(() => {
     if (!misafirLink) return;
@@ -152,19 +151,7 @@ export function AdminOdaDetay({
         aciklama="Bu linki müşteriye gönder. Müşteri onay verince fotoğraflar tekli/toplu otomatik ayrılabilir (yüz sayımı sunucuda lokal yapılır; hiçbir yere gönderilmez). Onay olmadan fotoğraflar kategorilenmez."
         icon={ShieldCheck}
       >
-        {onayToken ? (
-          <>
-            <LinkSatiri link={aiOnayLink} />
-            <div className="mt-3">
-              <Ac link={aiOnayLink} etiket="Onay sayfasını aç" />
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-amber-600">
-            Onay linki üretilemedi. Sayfayı yenileyin; sorun sürerse Medya
-            Merkezi&apos;nden tekrar deneyin.
-          </p>
-        )}
+        <KvkkOnayBolum odaId={oda.id} onayTokenIlk={onayToken} />
       </Bolum>
 
       {/* Albüm yetkisi (müşteri seçim linki) */}
@@ -573,6 +560,83 @@ function Ac({ link, etiket }: { link: string; etiket: string }) {
     >
       <ExternalLink className="h-4 w-4" /> {etiket}
     </a>
+  );
+}
+
+// KVKK onay linki — token yoksa otomatik retry (ilk girişte hata gösterme,
+// race condition'ı çöz). Oda oluşturmada token eager üretilir; bu yine de
+// eski odalar / nadir gecikmeler için güvenli ağdır.
+function KvkkOnayBolum({
+  odaId,
+  onayTokenIlk,
+}: {
+  odaId: string;
+  onayTokenIlk: string | null;
+}) {
+  const [token, setToken] = useState<string | null>(onayTokenIlk);
+  const [deneniyor, setDeneniyor] = useState(!onayTokenIlk);
+  const [origin, setOrigin] = useState("");
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOrigin(window.location.origin);
+  }, []);
+
+  useEffect(() => {
+    if (token) return;
+    let iptal = false;
+    (async () => {
+      for (let i = 0; i < 4 && !iptal; i++) {
+        try {
+          const res = await fetch("/api/admin/medya/onay-link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventId: odaId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.ok && data.token) {
+            if (!iptal) {
+              setToken(data.token as string);
+              setDeneniyor(false);
+            }
+            return;
+          }
+        } catch {
+          /* sonraki denemeye geç */
+        }
+        await new Promise((r) => setTimeout(r, 600));
+      }
+      if (!iptal) setDeneniyor(false);
+    })();
+    return () => {
+      iptal = true;
+    };
+  }, [token, odaId]);
+
+  const link = origin && token ? `${origin}/ai-onay/${token}` : "";
+
+  if (token) {
+    return (
+      <>
+        <LinkSatiri link={link} />
+        <div className="mt-3">
+          <Ac link={link} etiket="Onay sayfasını aç" />
+        </div>
+      </>
+    );
+  }
+  if (deneniyor) {
+    return (
+      <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Onay linki hazırlanıyor…
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm text-amber-600">
+      Onay linki şu an üretilemedi. Sayfayı yenileyin veya Medya
+      Merkezi&apos;nden deneyin.
+    </p>
   );
 }
 

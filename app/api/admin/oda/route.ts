@@ -4,6 +4,7 @@ import { adminOturumGecerli } from "@/lib/admin/oturum";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugYap, kisaEk } from "@/lib/slug";
 import { albumHakkiVer } from "@/lib/album/veri";
+import { onayTokenGetirVeyaUret } from "@/lib/kvkk/onay";
 
 // Oda oluşturmada seçilebilen dijital albüm paketleri ("yok" hariç hak tanımlanır).
 const GECERLI_ALBUM = new Set(["baslangic", "premium", "vip"]);
@@ -109,6 +110,11 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  // KVKK AI onay token'ını OLUŞTURMA ANINDA üret (lazy değil). Böylece admin
+  // oda detayına ilk girişte token hazır olur; "Onay linki üretilemedi" hatası
+  // ve race condition ortadan kalkar. Hata oda oluşumunu bozmaz.
+  await onayTokenGetirVeyaUret(olusan.id).catch(() => null);
 
   // Satış anı modeli: paket seçildiyse albüm hakkını oda oluşturmada otomatik ver
   // (token üretilir, müşteri seçim ekranı aktif olur). Hata oda oluşumunu bozmaz.
