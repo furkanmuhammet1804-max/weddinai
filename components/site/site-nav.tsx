@@ -10,7 +10,6 @@ import { TemaSecici } from "@/components/theme/tema-secici";
 
 const baglantilar = [
   { href: "/davetiye", label: "Davetiye" },
-  { href: "/showroom", label: "Showroom" },
   { href: "/#ozellikler", label: "Özellikler" },
   { href: "/#nasil-calisir", label: "Nasıl Çalışır" },
   { href: "/#sss", label: "S.S.S." },
@@ -41,9 +40,6 @@ export function SiteNav() {
           <div className="hidden items-center gap-3 md:flex">
             <TemaSecici />
             <span className="h-5 w-px bg-border" aria-hidden />
-            <ButtonLink href="/showroom" variant="ghost" size="sm">
-              Showroom
-            </ButtonLink>
             <ButtonLink href="/musteri" size="sm">
               Müşteri Girişi
             </ButtonLink>
@@ -85,9 +81,6 @@ export function SiteNav() {
                 <TemaSecici />
               </div>
               <div className="mt-2 flex gap-2">
-                <ButtonLink href="/showroom" variant="outline" size="sm" className="flex-1">
-                  Showroom
-                </ButtonLink>
                 <ButtonLink href="/musteri" size="sm" className="flex-1">
                   Müşteri Girişi
                 </ButtonLink>

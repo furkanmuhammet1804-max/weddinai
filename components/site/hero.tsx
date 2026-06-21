@@ -12,7 +12,7 @@ import { motion } from "framer-motion";
 import {
   Sparkles,
   ArrowRight,
-  PlayCircle,
+  Store,
   QrCode,
   Upload,
   Images as ImagesIcon,
@@ -121,7 +121,7 @@ export function Hero() {
               <Sparkles className="h-4 w-4" /> Bir Etkinlik Oluştur
             </ButtonLink>
             <ButtonLink href="/showroom" variant="outline" size="lg">
-              <PlayCircle className="h-4 w-4" /> Canlı Demo Gör
+              <Store className="h-4 w-4" /> Showroom&apos;u Keşfet
             </ButtonLink>
           </motion.div>
 
