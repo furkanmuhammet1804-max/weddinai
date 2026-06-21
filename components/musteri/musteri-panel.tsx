@@ -1033,6 +1033,9 @@ function MedyaKart({
   onShowroom: (talep: boolean) => void;
 }) {
   const [kaydediyor, setKaydediyor] = useState(false);
+  // Galeri akıcılığı: yükleme/fade + hatalı görsel için premium placeholder.
+  const [yuklendi, setYuklendi] = useState(false);
+  const [bozuk, setBozuk] = useState(false);
 
   // Mevcut durum: vitrinde mi, onay bekliyor mu, hiç gönderilmemiş mi?
   const gonderildi = medya.showroom_requested || medya.showroom_approved;
@@ -1068,29 +1071,46 @@ function MedyaKart({
         onClick={secimModu ? onSecim : onAc}
         className="relative block w-full bg-muted text-left"
       >
-        {medya.url ? (
-          medya.file_type === "video" ? (
-            <video
-              src={medya.url}
-              playsInline
-              muted
-              preload="metadata"
-              className="w-full"
-            />
+        {/* Sabit en-boy kutu → CLS yok; skeleton shimmer → boş beyaz kutu yok;
+            fade-in → yanıp sönme yok; onError → premium placeholder. */}
+        <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
+          {!yuklendi && !bozuk && (
+            <div className="wai-shimmer absolute inset-0" aria-hidden />
+          )}
+          {medya.url && !bozuk ? (
+            medya.file_type === "video" ? (
+              <video
+                src={medya.url}
+                playsInline
+                muted
+                preload="metadata"
+                onLoadedData={() => setYuklendi(true)}
+                onError={() => setBozuk(true)}
+                className={`h-full w-full object-cover transition-opacity duration-500 ${
+                  yuklendi ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={medya.url}
+                alt={medya.guest_name ?? "Anı"}
+                loading="lazy"
+                decoding="async"
+                onLoad={() => setYuklendi(true)}
+                onError={() => setBozuk(true)}
+                className={`h-full w-full object-cover transition-opacity duration-500 ${
+                  yuklendi ? "opacity-100" : "opacity-0"
+                }`}
+              />
+            )
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={medya.url}
-              alt={medya.guest_name ?? "Anı"}
-              loading="lazy"
-              className="w-full object-cover"
-            />
-          )
-        ) : (
-          <div className="flex aspect-square items-center justify-center text-muted-foreground">
-            <Camera className="h-6 w-6" />
-          </div>
-        )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-muted to-primary-soft/40 text-muted-foreground">
+              <Camera className="h-6 w-6 opacity-60" />
+              {bozuk && <span className="text-[11px]">Görsel yüklenemedi</span>}
+            </div>
+          )}
+        </div>
 
         {medya.file_type === "video" && (
           <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur">
