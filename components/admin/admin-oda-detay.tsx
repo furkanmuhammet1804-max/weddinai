@@ -31,6 +31,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
+import { ALBUM_PAKETLER } from "@/lib/album/sabit";
 import type { OdaMedya, OdaAni } from "@/lib/oda/veri";
 
 interface Oda {
@@ -164,6 +165,15 @@ export function AdminOdaDetay({
             Merkezi&apos;nden tekrar deneyin.
           </p>
         )}
+      </Bolum>
+
+      {/* Albüm yetkisi (müşteri seçim linki) */}
+      <Bolum
+        baslik="Albüm Hazırlama Yetkisi"
+        aciklama="Albüm hizmeti alan müşteriye paket ver; müşteri kendi fotoğraflarını seçip sıralasın, kapak ve bölüm belirlesin. Albümü siz üretirsiniz (Albüm Siparişleri)."
+        icon={Images}
+      >
+        <AlbumHakkiBolum odaId={oda.id} />
       </Bolum>
 
       {/* Misafir QR */}
@@ -563,6 +573,92 @@ function Ac({ link, etiket }: { link: string; etiket: string }) {
     >
       <ExternalLink className="h-4 w-4" /> {etiket}
     </a>
+  );
+}
+
+// Admin: odaya albüm hakkı verir (paket seç → token üret → müşteri seçim linki).
+function AlbumHakkiBolum({ odaId }: { odaId: string }) {
+  const [paket, setPaket] = useState<string>("baslangic");
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
+  const [hata, setHata] = useState<string | null>(null);
+
+  async function hakVer() {
+    if (yukleniyor) return;
+    let ozelAdet: number | null = null;
+    if (paket === "ozel") {
+      const giris = window.prompt("Özel paket — kaç fotoğraf? (1-500)", "150");
+      const n = Number(giris);
+      if (!Number.isFinite(n) || n < 1) return;
+      ozelAdet = Math.min(500, Math.floor(n));
+    }
+    setYukleniyor(true);
+    setHata(null);
+    try {
+      const res = await fetch("/api/admin/album/hak-ver", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: odaId, paket, ozelAdet }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !data.token)
+        throw new Error(data.hata ?? "İşlem başarısız.");
+      setLink(`${window.location.origin}/album-sec/${data.token}`);
+    } catch (err) {
+      setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
+    } finally {
+      setYukleniyor(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={paket}
+          onChange={(e) => setPaket(e.target.value)}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+        >
+          {ALBUM_PAKETLER.map((p) => (
+            <option key={p.deger} value={p.deger}>
+              {p.etiket}
+              {p.adet ? ` (${p.adet})` : ""}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={hakVer}
+          disabled={yukleniyor}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
+        >
+          {yukleniyor ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Images className="h-4 w-4" />
+          )}
+          Albüm Yetkisi Ver
+        </button>
+      </div>
+
+      {hata && (
+        <p className="mt-3 rounded-xl bg-rose-soft px-4 py-2.5 text-sm font-medium text-rose">
+          {hata}
+        </p>
+      )}
+
+      {link && (
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-medium text-emerald-700">
+            Albüm seçim linki hazır — müşteriye gönderin:
+          </p>
+          <LinkSatiri link={link} />
+          <div className="mt-3">
+            <Ac link={link} etiket="Seçim ekranını aç" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

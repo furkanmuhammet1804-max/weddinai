@@ -131,6 +131,22 @@ export async function onaySonrasiKuyrugaAl(eventId: string): Promise<void> {
     .is("medya_kategori", null);
 }
 
+// Admin "Mevcut Fotoğrafları Yeniden Tara": eski odalarda kategorisiz kalmış
+// (medya_kategori IS NULL) TÜM medyayı yeniden kuyruğa alır (oto_islendi=false).
+// Admin override edilmiş kareler her zaman bir kategoriye sahip olduğundan bu
+// filtreye girmez ve korunur. Döndürülen sayı = kuyruğa alınan medya adedi.
+export async function yenidenTaraKuyrukla(eventId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("media")
+    .update({ oto_islendi: false })
+    .eq("event_id", eventId)
+    .is("medya_kategori", null)
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
 // ---- Kategori durumu (ilerleme + dağılım) ----
 export async function kategoriDurum(eventId: string): Promise<KategoriDurum> {
   const admin = createAdminClient();

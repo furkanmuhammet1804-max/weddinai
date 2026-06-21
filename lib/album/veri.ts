@@ -6,6 +6,7 @@
 // AI otomatik seçim YOKTUR; admin adaylar + favorilerden albümü elle kurar.
 // Son karar her zaman adminde.
 // =============================================================
+import { randomBytes } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugYap, kisaEk } from "@/lib/slug";
 import { paketAdet, VARSAYILAN_BOLUM } from "@/lib/album/sabit";
@@ -336,6 +337,250 @@ export async function albumEventYayinda(eventId: string): Promise<Album | null> 
     .maybeSingle();
   if (!data) return null;
   return albumGetir(data.id as string);
+}
+
+// =============================================================
+// F5 V2 — MÜŞTERİ ALBÜM SEÇİMİ (tahmin edilemez token ile public akış).
+// Müşteri seçer/sıralar/kapak+bölüm belirler; admin PDF üretir. Seçim
+// doğrudan albumler + album_fotograflar tablolarına yazılır (PDF aynen çalışır).
+// =============================================================
+
+function secimTokenUret(): string {
+  return randomBytes(24).toString("base64url"); // 32 karakter, URL-güvenli
+}
+
+// ---- Admin: albüm hakkı ver (paket + foto limiti + müşteri seçim token'ı) ----
+// Idempotent: oda için albüm satırı yoksa oluşturur; varsa paket/limit günceller.
+// Tamamlanmış seçim varsa durumu bozmaz. Müşteri linki: /album-sec/<token>.
+export async function albumHakkiVer(
+  eventId: string,
+  paket: string,
+  ozelAdet?: number | null,
+): Promise<{ ok: boolean; token?: string; hata?: string }> {
+  const admin = createAdminClient();
+  const limit = paketAdet(paket, ozelAdet);
+
+  const { data: varOlan } = await admin
+    .from("albumler")
+    .select("id, secim_token, secim_tamamlandi")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (varOlan) {
+    let token = (varOlan.secim_token as string) ?? null;
+    const yama: Record<string, unknown> = { paket, limit_adet: limit };
+    if (!token) {
+      token = secimTokenUret();
+      yama.secim_token = token;
+    }
+    // Tamamlanmamışsa müşteri hâlâ seçim yapabilsin (durum=secim).
+    if (!varOlan.secim_tamamlandi) yama.durum = "secim";
+    const { error } = await admin.from("albumler").update(yama).eq("id", varOlan.id);
+    if (error) return { ok: false, hata: "Albüm güncellenemedi." };
+    return { ok: true, token: token! };
+  }
+
+  const bilgi = await odaBilgiId(eventId);
+  const token = secimTokenUret();
+  const { error } = await admin.from("albumler").insert({
+    event_id: eventId,
+    baslik: `${bilgi?.title ?? "Düğün"} Albümü`,
+    paket,
+    limit_adet: limit,
+    durum: "secim",
+    secim_token: token,
+  });
+  if (error) return { ok: false, hata: "Albüm hakkı verilemedi." };
+  return { ok: true, token };
+}
+
+// ---- Müşteri seçim ekranı verisi (token ile, yalnız o odanın fotoğrafları) ----
+export interface AlbumSecimVeri {
+  album_id: string;
+  baslik: string;
+  paket: string;
+  limit_adet: number;
+  event_title: string;
+  kapak_media_id: string | null;
+  tamamlandi: boolean;
+  tamamlandi_at: string | null;
+  secili: AlbumFoto[];
+  havuz: { media_id: string; url: string | null }[];
+}
+
+export async function albumSecimGetir(token: string): Promise<AlbumSecimVeri | null> {
+  if (!token || token.length < 16) return null;
+  const admin = createAdminClient();
+  const { data: a } = await admin
+    .from("albumler")
+    .select(
+      "id, event_id, baslik, paket, limit_adet, kapak_media_id, secim_tamamlandi, secim_tamamlandi_at, events(title)",
+    )
+    .eq("secim_token", token)
+    .maybeSingle();
+  if (!a) return null;
+
+  const eventId = a.event_id as string;
+  const secili = await albumFotograflari(a.id as string); // sira'ya göre sıralı
+  const seciliSet = new Set(secili.map((f) => f.media_id));
+
+  // Havuz = bu odanın HENÜZ seçilmemiş fotoğrafları (yalnız bu oda — güvenlik).
+  const fotolar = await odaFotograflari(eventId);
+  const kalan = fotolar.filter((f) => !seciliSet.has(f.id));
+  const harita = await imzaliUrlHaritasi(kalan.map((f) => f.storage_path));
+  const havuz = kalan.map((f) => ({
+    media_id: f.id,
+    url: harita.get(f.storage_path) ?? null,
+  }));
+
+  const ev = (a as { events?: { title?: string } }).events;
+  return {
+    album_id: a.id as string,
+    baslik: (a.baslik as string) ?? "Düğün Albümü",
+    paket: (a.paket as string) ?? "baslangic",
+    limit_adet: (a.limit_adet as number) ?? 50,
+    event_title: ev?.title ?? "",
+    kapak_media_id: (a.kapak_media_id as string) ?? null,
+    tamamlandi: !!a.secim_tamamlandi,
+    tamamlandi_at: (a.secim_tamamlandi_at as string) ?? null,
+    secili,
+    havuz,
+  };
+}
+
+// ---- Müşteri seçimini kaydet (limit + sahiplik doğrulaması) ----
+export async function albumSecimKaydet(
+  token: string,
+  g: {
+    kapakMediaId: string | null;
+    fotograflar: { media_id: string; bolum: string | null; sira: number }[];
+  },
+): Promise<{ ok: boolean; hata?: string }> {
+  if (!token || token.length < 16) return { ok: false, hata: "Geçersiz bağlantı." };
+  const admin = createAdminClient();
+  const { data: a } = await admin
+    .from("albumler")
+    .select("id, event_id, limit_adet, secim_tamamlandi")
+    .eq("secim_token", token)
+    .maybeSingle();
+  if (!a) return { ok: false, hata: "Albüm bulunamadı." };
+  if (a.secim_tamamlandi)
+    return { ok: false, hata: "Seçiminiz tamamlandı; değişiklik yapılamaz." };
+
+  const limit = (a.limit_adet as number) ?? 50;
+  if (g.fotograflar.length > limit)
+    return { ok: false, hata: `En fazla ${limit} fotoğraf seçebilirsiniz.` };
+
+  // Güvenlik: seçilen tüm medya gerçekten bu odaya mı ait?
+  const eventId = a.event_id as string;
+  const ids = g.fotograflar.map((f) => f.media_id);
+  if (ids.length) {
+    const { data: ait } = await admin
+      .from("media")
+      .select("id")
+      .eq("event_id", eventId)
+      .in("id", ids);
+    if ((ait?.length ?? 0) !== ids.length)
+      return { ok: false, hata: "Geçersiz fotoğraf seçimi." };
+  }
+
+  const kapak =
+    g.kapakMediaId && ids.includes(g.kapakMediaId) ? g.kapakMediaId : (ids[0] ?? null);
+  const { error: uErr } = await admin
+    .from("albumler")
+    .update({ kapak_media_id: kapak })
+    .eq("id", a.id);
+  if (uErr) return { ok: false, hata: "Kaydedilemedi." };
+
+  await admin.from("album_fotograflar").delete().eq("album_id", a.id);
+  if (g.fotograflar.length) {
+    const satirlar = g.fotograflar.map((f) => ({
+      album_id: a.id,
+      media_id: f.media_id,
+      bolum: f.bolum,
+      sira: f.sira,
+    }));
+    const { error: iErr } = await admin.from("album_fotograflar").insert(satirlar);
+    if (iErr) return { ok: false, hata: "Fotoğraflar kaydedilemedi." };
+  }
+  return { ok: true };
+}
+
+// ---- Müşteri seçimini tamamla (readonly kilidi) ----
+export async function albumSecimTamamla(
+  token: string,
+): Promise<{ ok: boolean; hata?: string }> {
+  if (!token || token.length < 16) return { ok: false, hata: "Geçersiz bağlantı." };
+  const admin = createAdminClient();
+  const { data: a } = await admin
+    .from("albumler")
+    .select("id, secim_tamamlandi")
+    .eq("secim_token", token)
+    .maybeSingle();
+  if (!a) return { ok: false, hata: "Albüm bulunamadı." };
+  if (a.secim_tamamlandi) return { ok: true }; // idempotent
+  const { error } = await admin
+    .from("albumler")
+    .update({
+      secim_tamamlandi: true,
+      secim_tamamlandi_at: new Date().toISOString(),
+      durum: "taslak",
+    })
+    .eq("id", a.id);
+  if (error) return { ok: false, hata: "Tamamlanamadı." };
+  return { ok: true };
+}
+
+// ---- Admin: Albüm Siparişleri listesi (hak verilmiş tüm odalar) ----
+export interface AlbumSiparisSatir {
+  album_id: string;
+  event_id: string;
+  event_title: string;
+  customer_name: string | null;
+  paket: string;
+  limit_adet: number;
+  secili_sayisi: number;
+  tamamlandi: boolean;
+  tamamlandi_at: string | null;
+  secim_token: string | null;
+}
+
+export async function albumSiparisListe(): Promise<AlbumSiparisSatir[]> {
+  const admin = createAdminClient();
+  const { data: albumler } = await admin
+    .from("albumler")
+    .select(
+      "id, event_id, paket, limit_adet, secim_tamamlandi, secim_tamamlandi_at, secim_token, created_at, events(title, customer_name)",
+    )
+    .not("secim_token", "is", null)
+    .order("created_at", { ascending: false });
+  const liste = albumler ?? [];
+  if (liste.length === 0) return [];
+
+  const ids = liste.map((a) => a.id as string);
+  const { data: foto } = await admin
+    .from("album_fotograflar")
+    .select("album_id")
+    .in("album_id", ids);
+  const say = new Map<string, number>();
+  for (const f of foto ?? [])
+    say.set(f.album_id as string, (say.get(f.album_id as string) ?? 0) + 1);
+
+  return liste.map((a) => {
+    const ev = (a as { events?: { title?: string; customer_name?: string } }).events;
+    return {
+      album_id: a.id as string,
+      event_id: a.event_id as string,
+      event_title: ev?.title ?? "Oda",
+      customer_name: ev?.customer_name ?? null,
+      paket: (a.paket as string) ?? "baslangic",
+      limit_adet: (a.limit_adet as number) ?? 50,
+      secili_sayisi: say.get(a.id as string) ?? 0,
+      tamamlandi: !!a.secim_tamamlandi,
+      tamamlandi_at: (a.secim_tamamlandi_at as string) ?? null,
+      secim_token: (a.secim_token as string) ?? null,
+    };
+  });
 }
 
 // ---- Public okuma ----

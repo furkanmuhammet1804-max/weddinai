@@ -293,7 +293,19 @@ export async function albumPdf(album: Album): Promise<Buffer> {
     if (arr) arr.push(f);
     else gruplar.set(b, [f]);
   }
+  // F5 V2: bölüm sırası MÜŞTERİ seçimine göre — her bölümün en küçük 'sira'sı
+  // (müşterinin o bölümdeki ilk fotoğrafı) bölüm sırasını belirler. Eşitlikte
+  // sabit düzen (BOLUM_DUZEN) ile çözülür.
+  const minSira = new Map<string, number>();
+  for (const f of album.fotograflar) {
+    const b = f.bolum ?? "Diğer";
+    const m = minSira.get(b);
+    if (m === undefined || f.sira < m) minSira.set(b, f.sira);
+  }
   const sirali = [...gruplar.entries()].sort((a, b) => {
+    const sa = minSira.get(a[0]) ?? 9999;
+    const sb = minSira.get(b[0]) ?? 9999;
+    if (sa !== sb) return sa - sb;
     const ia = BOLUM_DUZEN.indexOf(a[0]);
     const ib = BOLUM_DUZEN.indexOf(b[0]);
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);

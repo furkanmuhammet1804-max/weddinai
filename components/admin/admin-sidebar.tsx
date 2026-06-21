@@ -14,6 +14,7 @@ import {
   BookHeart,
   Images,
   GalleryHorizontalEnd,
+  ClipboardList,
   Sparkles,
   Menu,
   X,
@@ -32,6 +33,7 @@ const menu = [
   { href: "/admin/hatira", label: "Hatıra Defteri", icon: BookHeart },
   { href: "/admin/medya", label: "AI Medya Merkezi", icon: Images },
   { href: "/admin/album", label: "AI Albüm", icon: GalleryHorizontalEnd },
+  { href: "/admin/album-siparis", label: "Albüm Siparişleri", icon: ClipboardList },
   { href: "/admin/ai-gecmis", label: "AI İşlem Geçmişi", icon: Sparkles },
   { href: "/admin/istatistik", label: "İstatistik", icon: BarChart3 },
 ];

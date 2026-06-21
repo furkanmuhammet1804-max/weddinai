@@ -17,6 +17,7 @@ import {
   Users,
   User,
   Video as VideoIcon,
+  RefreshCw,
 } from "lucide-react";
 import { MEDYA_KATEGORILER, kategoriEtiket } from "@/lib/medya/sabit";
 import type { MedyaFoto, KategoriDurum } from "@/lib/medya/veri";
@@ -77,24 +78,57 @@ export function MedyaMerkezi({
     );
   }
 
+  // Bekleyen (oto_islendi=false) medyaları parti parti işler; ilerleme gösterir.
+  async function partiDongusu() {
+    let devam = true;
+    while (devam) {
+      const res = await fetch("/api/admin/medya/analiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.hata ?? "İşlenemedi.");
+      setKalan(data.kalan ?? 0);
+      setIlerleme(`${data.kategorilenen}/${data.toplam} işlendi`);
+      if ((data.kalan ?? 0) <= 0 || (data.islenen ?? 0) === 0) devam = false;
+    }
+  }
+
   async function islemeBasla() {
     if (calisiyor) return;
     setCalisiyor(true);
     setHata(null);
     try {
-      let devam = true;
-      while (devam) {
-        const res = await fetch("/api/admin/medya/analiz", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ eventId }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.hata ?? "İşlenemedi.");
-        setKalan(data.kalan ?? 0);
-        setIlerleme(`${data.kategorilenen}/${data.toplam} kategorilendi`);
-        if ((data.kalan ?? 0) <= 0 || (data.islenen ?? 0) === 0) devam = false;
+      await partiDongusu();
+      window.location.reload();
+    } catch (err) {
+      setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
+      setCalisiyor(false);
+    }
+  }
+
+  // Eski odalar: kategorisiz kalmış TÜM fotoğrafları yeniden kuyruğa al, sonra işle.
+  async function yenidenTara() {
+    if (calisiyor) return;
+    setCalisiyor(true);
+    setHata(null);
+    try {
+      const res = await fetch("/api/admin/medya/yeniden-tara", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok)
+        throw new Error(data.hata ?? "Yeniden tarama başlatılamadı.");
+      setKalan(data.kalan ?? 0);
+      if ((data.kalan ?? 0) <= 0) {
+        bildir("Kategorisiz fotoğraf bulunamadı.");
+        setCalisiyor(false);
+        return;
       }
+      await partiDongusu();
       window.location.reload();
     } catch (err) {
       setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
@@ -212,6 +246,20 @@ export function MedyaMerkezi({
         >
           {calisiyor ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {kalan > 0 ? `Bekleyenleri Kategorile (${kalan})` : "Bekleyen Yok"}
+        </button>
+        <button
+          type="button"
+          onClick={yenidenTara}
+          disabled={calisiyor}
+          title="Kategorisiz kalmış mevcut fotoğrafları yeniden işle (eski odalar)"
+          className="inline-flex items-center gap-2 rounded-full border border-primary/40 px-5 py-2.5 text-sm font-semibold text-primary-deep transition-colors hover:bg-primary-soft/50 disabled:opacity-60"
+        >
+          {calisiyor ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="h-4 w-4" />
+          )}
+          Mevcut Fotoğrafları Yeniden Tara
         </button>
         <span className="text-sm text-muted-foreground">
           {ilerleme ?? `${durumIlk.kategorilenen}/${durumIlk.toplam} kategorilendi`}

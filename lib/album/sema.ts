@@ -29,3 +29,22 @@ export const albumYayinlaSema = z.object({
   id: z.string().uuid(),
   yayinla: z.boolean(),
 });
+
+// F5 V2 — müşteri seçim akışı (public, token ile).
+export const albumSecimKaydetSema = z.object({
+  token: z.string().trim().min(16).max(128),
+  kapakMediaId: z.string().uuid().nullable(),
+  fotograflar: z
+    .array(
+      z.object({
+        media_id: z.string().uuid(),
+        bolum: z.string().max(60).nullable(),
+        sira: z.number().int().min(0),
+      }),
+    )
+    .max(500),
+});
+
+export const albumSecimTamamlaSema = z.object({
+  token: z.string().trim().min(16).max(128),
+});
