@@ -28,6 +28,7 @@ import {
   Mic,
   Video as VideoIcon,
   Camera,
+  ShieldCheck,
 } from "lucide-react";
 import { turEtiket, tarihTR } from "@/lib/etkinlik";
 import type { OdaMedya, OdaAni } from "@/lib/oda/veri";
@@ -53,10 +54,12 @@ export function AdminOdaDetay({
   oda,
   medyalar,
   anilar,
+  onayToken,
 }: {
   oda: Oda;
   medyalar: OdaMedya[];
   anilar: OdaAni[];
+  onayToken: string | null;
 }) {
   const router = useRouter();
   const [origin, setOrigin] = useState("");
@@ -72,6 +75,7 @@ export function AdminOdaDetay({
   const misafirLink = origin ? `${origin}/e/${oda.slug}` : "";
   const showroomLink = origin ? `${origin}/showroom/${oda.slug}` : "";
   const slaytLink = origin ? `${origin}/slayt/${oda.slug}` : "";
+  const aiOnayLink = origin && onayToken ? `${origin}/ai-onay/${onayToken}` : "";
 
   useEffect(() => {
     if (!misafirLink) return;
@@ -139,6 +143,27 @@ export function AdminOdaDetay({
         <div className="mt-3">
           <Ac link={musteriLink} etiket="Müşteri panelini aç" />
         </div>
+      </Bolum>
+
+      {/* KVKK — AI medya onay linki (müşteriye gönderilir) */}
+      <Bolum
+        baslik="KVKK — AI Medya Onay Linki"
+        aciklama="Bu linki müşteriye gönder. Müşteri onay verince fotoğraflar tekli/toplu otomatik ayrılabilir (yüz sayımı sunucuda lokal yapılır; hiçbir yere gönderilmez). Onay olmadan fotoğraflar kategorilenmez."
+        icon={ShieldCheck}
+      >
+        {onayToken ? (
+          <>
+            <LinkSatiri link={aiOnayLink} />
+            <div className="mt-3">
+              <Ac link={aiOnayLink} etiket="Onay sayfasını aç" />
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-amber-600">
+            Onay linki üretilemedi. Sayfayı yenileyin; sorun sürerse Medya
+            Merkezi&apos;nden tekrar deneyin.
+          </p>
+        )}
       </Bolum>
 
       {/* Misafir QR */}

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { odaMedyalari, odaAnilari } from "@/lib/oda/veri";
+import { onayTokenGetirVeyaUret } from "@/lib/kvkk/onay";
 import { AdminOdaDetay } from "@/components/admin/admin-oda-detay";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +21,12 @@ export default async function AdminOdaDetayPage(
     .maybeSingle();
   if (!oda) notFound();
 
-  const [medyalar, anilar] = await Promise.all([
+  // KVKK AI onay token'ı: idempotent — yoksa üretir, varsa getirir. Böylece
+  // onay linki oda detayda her zaman gösterilir (mevcut odalar dahil).
+  const [medyalar, anilar, onayToken] = await Promise.all([
     odaMedyalari(oda.id as string),
     odaAnilari(oda.id as string),
+    onayTokenGetirVeyaUret(oda.id as string),
   ]);
 
   return (
@@ -39,6 +43,7 @@ export default async function AdminOdaDetayPage(
       }}
       medyalar={medyalar}
       anilar={anilar}
+      onayToken={onayToken}
     />
   );
 }
