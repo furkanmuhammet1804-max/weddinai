@@ -22,11 +22,14 @@ export function AiOnayKutusu({
   onayTarihi,
 }: {
   token: string;
+  // Ziyaretten ÖNCE bu oda zaten onaylı mıydı (server'dan gelir, salt okunur).
   zatenOnayli: boolean;
   onayTarihi: string | null;
 }) {
-  const [onayli, setOnayli] = useState(zatenOnayli);
-  const [tarih, setTarih] = useState(onayTarihi);
+  // Yalnızca bu oturumda kullanıcı "Onaylıyorum"a basıp POST başarılı olunca true.
+  // Link girişinde ASLA otomatik true olmaz.
+  const [yeniOnaylandi, setYeniOnaylandi] = useState(false);
+  const [tarih, setTarih] = useState<string | null>(null);
   const [kabul, setKabul] = useState(false);
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [hata, setHata] = useState<string | null>(null);
@@ -43,8 +46,8 @@ export function AiOnayKutusu({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.hata ?? "Onay kaydedilemedi.");
-      setOnayli(true);
       setTarih(new Date().toISOString());
+      setYeniOnaylandi(true);
     } catch (err) {
       setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
     } finally {
@@ -52,7 +55,8 @@ export function AiOnayKutusu({
     }
   }
 
-  if (onayli) {
+  // 1) Bu oturumda yeni onay verildi → teşekkür ekranı.
+  if (yeniOnaylandi) {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-center">
         <CheckCircle2 className="mx-auto h-9 w-9 text-emerald-600" />
@@ -67,6 +71,24 @@ export function AiOnayKutusu({
     );
   }
 
+  // 2) Ziyaretten ÖNCE zaten onaylanmış → bilgilendirme (otomatik onay DEĞİL).
+  if (zatenOnayli) {
+    return (
+      <div className="rounded-2xl border border-border bg-muted/40 p-5 text-center">
+        <ShieldCheck className="mx-auto h-9 w-9 text-muted-foreground" />
+        <p className="font-display mt-2 text-lg font-semibold text-foreground">
+          Bu oda için daha önce onay verilmiştir.
+        </p>
+        {onayTarihi ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Onay tarihi: {tarihTR(onayTarihi)}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  // 3) İlk giriş / onaysız → KVKK açık rıza formu (varsayılan: onay YOK).
   return (
     <div>
       <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-background p-4">
