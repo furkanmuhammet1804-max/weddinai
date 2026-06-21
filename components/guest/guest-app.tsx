@@ -34,7 +34,9 @@ const TEBRIK_TONLAR = [
 const MEDYA_BUCKET = "event-media";
 const SES_BUCKET = "event-audio";
 const MAKS_DOSYA_BAYT = 50 * 1024 * 1024; // 50 MiB
-const MAKS_DOSYA_ADET = 30;
+// Tek seferde seçilebilen dosya adedi. Yükleme sıralı (eşzamanlılık 1, bkz.
+// dosyaSec) olduğundan 50 dosya storage/ağı zorlamaz; batching gerekmez.
+const MAKS_DOSYA_ADET = 50;
 
 type Sekme = "yukle" | "ani";
 type DosyaDurum = "bekliyor" | "yukleniyor" | "tamam" | "hata";
