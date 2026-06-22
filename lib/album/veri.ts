@@ -587,6 +587,21 @@ export async function albumSecimTamamla(
   return { ok: true };
 }
 
+// ---- Müşteri: token ile tam albümü getir (PDF üretimi için) ----
+// Müşteri kendi seçtiği albümün PDF'ini indirebilsin diye token → Album köprüsü.
+// Admin müdahalesi GEREKMEZ; PDF talep anında üretilir.
+export async function albumSecimAlbumGetir(token: string): Promise<Album | null> {
+  if (!token || token.length < 16) return null;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("albumler")
+    .select("id")
+    .eq("secim_token", token)
+    .maybeSingle();
+  if (!data) return null;
+  return albumGetir(data.id as string);
+}
+
 // ---- Admin: Albüm Siparişleri listesi (hak verilmiş tüm odalar) ----
 export interface AlbumSiparisSatir {
   album_id: string;

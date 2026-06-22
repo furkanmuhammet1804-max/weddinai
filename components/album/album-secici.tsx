@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   Lock,
   ShieldCheck,
+  Download,
+  ImageIcon,
 } from "lucide-react";
 import { BOLUM_DUZEN, VARSAYILAN_BOLUM, paketEtiket } from "@/lib/album/sabit";
 import type { AlbumSecimVeri } from "@/lib/album/veri";
@@ -152,6 +154,12 @@ export function AlbumSecici({
     }
   }
 
+  // Seçili kapak (yoksa ilk fotoğraf önizlenir) — ayrı kapak alanı için.
+  const kapakFoto = useMemo(
+    () => secili.find((f) => f.media_id === kapak) ?? secili[0] ?? null,
+    [secili, kapak],
+  );
+
   const bolumSayim = useMemo(() => {
     const m = new Map<string, number>();
     for (const f of secili) {
@@ -169,16 +177,22 @@ export function AlbumSecici({
           <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-7 text-center shadow-elegant">
             <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
             <h1 className="font-display mt-3 text-2xl font-semibold text-emerald-800">
-              Albüm seçiminiz tamamlandı 💛
+              Albümünüz hazır 💛
             </h1>
             <p className="mt-2 text-sm text-emerald-700">
-              Teşekkürler! Seçtiğiniz {secili.length} fotoğraf ekibimize iletildi.
-              Albümünüz hazırlanıp sizinle paylaşılacaktır.
+              Seçtiğiniz {secili.length} fotoğrafla albümünüz oluşturuldu. PDF
+              olarak hemen indirebilirsiniz.
             </p>
+            <a
+              href={`/api/album-sec/pdf?token=${encodeURIComponent(token)}`}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-elegant transition-all hover:brightness-110"
+            >
+              <Download className="h-4 w-4" /> Albümü PDF İndir
+            </a>
           </div>
           <p className="mt-6 text-center text-xs text-muted-foreground">
             <span className="font-display">WeddinAI</span> · Seçiminiz kilitlendi,
-            değişiklik yapılamaz.
+            değişiklik yapılamaz. Albümünüzü istediğiniz zaman yeniden indirebilirsiniz.
           </p>
         </div>
       </main>
@@ -258,6 +272,84 @@ export function AlbumSecici({
               Albüm Seçimimi Tamamla
             </button>
           </div>
+        </div>
+
+        {/* Kapak Fotoğrafı — ayrı seçim alanı */}
+        <div className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <ImageIcon className="h-5 w-5 text-primary" />
+            <h2 className="font-display text-lg font-semibold">Kapak Fotoğrafı</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Albümünüzün ön kapağında görünecek fotoğrafı seçin.
+          </p>
+
+          {secili.length === 0 ? (
+            <p className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-8 text-center text-sm text-muted-foreground">
+              Önce aşağıdan fotoğraf ekleyin, sonra kapağı buradan seçebilirsiniz.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-5 sm:grid-cols-[200px_1fr] sm:items-start">
+              {/* Seçili kapak önizleme */}
+              <div className="overflow-hidden rounded-2xl border border-primary/40 bg-muted ring-1 ring-primary/20">
+                <div className="relative aspect-[3/4] w-full">
+                  {kapakFoto?.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={kapakFoto.url}
+                      alt="Albüm kapağı"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <ImageIcon className="h-7 w-7 opacity-60" />
+                      <span className="text-xs">Kapak seçilmedi</span>
+                    </div>
+                  )}
+                  <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                    <Star className="h-3 w-3 fill-current" /> Kapak
+                  </span>
+                </div>
+              </div>
+
+              {/* Seçilenler arasından kapak seç */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Kapak yapmak için bir fotoğrafa dokunun:
+                </p>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
+                  {secili.map((f) => (
+                    <button
+                      key={f.media_id}
+                      type="button"
+                      onClick={() => setKapak(f.media_id)}
+                      title="Kapak yap"
+                      className={`relative aspect-square h-20 w-20 shrink-0 overflow-hidden rounded-xl border transition-all ${
+                        kapak === f.media_id
+                          ? "border-primary ring-2 ring-primary"
+                          : "border-border hover:border-primary/60"
+                      }`}
+                    >
+                      {f.url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={f.url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
+                      {kapak === f.media_id && (
+                        <span className="absolute right-1 top-1 rounded-full bg-primary p-0.5 text-primary-foreground">
+                          <Star className="h-3 w-3 fill-current" />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Seçilenler (sürükle-bırak sırala) */}

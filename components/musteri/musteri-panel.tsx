@@ -938,12 +938,20 @@ function AlbumSekme({ hak }: { hak: AlbumHakBilgi | null }) {
       <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-600" />
         <h3 className="font-display mt-3 text-lg font-semibold text-emerald-800">
-          Albüm seçiminiz tamamlandı 💛
+          Albümünüz hazır 💛
         </h3>
         <p className="mt-1.5 text-sm text-emerald-700">
-          Seçtiğiniz {hak.secili_sayisi} fotoğraf ekibimize iletildi. Profesyonel
-          albümünüz hazırlanıyor.
+          Seçtiğiniz {hak.secili_sayisi} fotoğrafla albümünüz oluşturuldu. PDF
+          olarak hemen indirebilirsiniz.
         </p>
+        {hak.secim_token && (
+          <a
+            href={`/api/album-sec/pdf?token=${encodeURIComponent(hak.secim_token)}`}
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white shadow-elegant transition-all hover:brightness-110"
+          >
+            <Download className="h-4 w-4" /> Albümü PDF İndir
+          </a>
+        )}
       </div>
     );
   }
