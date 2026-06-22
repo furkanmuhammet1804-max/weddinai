@@ -1,4 +1,4 @@
-// Yönetici bir odayı TAMAMEN siler: depolama dosyaları + DB (cascade).
+// Yönetici birden çok odayı TEK seferde TAMAMEN siler: depolama + DB (cascade).
 import { NextResponse } from "next/server";
 import { adminOturumGecerli } from "@/lib/admin/oturum";
 import { odalariSil } from "@/lib/oda/veri";
@@ -11,20 +11,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ hata: "Yetki yok." }, { status: 401 });
   }
 
-  let body: { id?: string };
+  let body: { ids?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ hata: "Geçersiz istek." }, { status: 400 });
   }
-  const id = (body.id ?? "").trim();
-  if (!id) {
-    return NextResponse.json({ hata: "Oda kimliği gerekli." }, { status: 400 });
+  const ids = Array.isArray(body.ids)
+    ? body.ids.filter((x): x is string => typeof x === "string")
+    : [];
+  if (ids.length === 0) {
+    return NextResponse.json({ hata: "En az bir oda seçin." }, { status: 400 });
   }
 
-  const sonuc = await odalariSil([id]);
+  const sonuc = await odalariSil(ids);
   if (!sonuc.ok) {
-    return NextResponse.json({ hata: sonuc.hata ?? "Oda silinemedi." }, { status: 500 });
+    return NextResponse.json({ hata: sonuc.hata ?? "Silinemedi." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, silinen: sonuc.silinen });
 }

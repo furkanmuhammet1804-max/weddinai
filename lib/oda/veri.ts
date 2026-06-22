@@ -378,6 +378,39 @@ export function kalanGun(expires_at: string | null | undefined): number | null {
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
+// Yönetici: bir veya daha çok odayı TAMAMEN siler (depolama dosyaları + DB cascade).
+// Depolama temizliği başarısız olsa bile DB silme denenir. Döndürür: silinen sayısı.
+export async function odalariSil(
+  ids: string[],
+): Promise<{ ok: boolean; silinen: number; hata?: string }> {
+  const temiz = [...new Set(ids.map((s) => (s ?? "").trim()).filter(Boolean))];
+  if (temiz.length === 0)
+    return { ok: false, silinen: 0, hata: "Oda kimliği gerekli." };
+  const admin = createAdminClient();
+
+  // Her odanın depolama klasörünü iki bucket'ta da temizle.
+  for (const id of temiz) {
+    for (const bucket of ["event-media", "event-audio"]) {
+      try {
+        const { data: objs } = await admin.storage
+          .from(bucket)
+          .list(id, { limit: 1000 });
+        if (objs && objs.length > 0) {
+          await admin.storage
+            .from(bucket)
+            .remove(objs.map((o) => `${id}/${o.name}`));
+        }
+      } catch {
+        /* depolama temizliği başarısız olsa da DB silmeye devam */
+      }
+    }
+  }
+
+  const { error } = await admin.from("events").delete().in("id", temiz);
+  if (error) return { ok: false, silinen: 0, hata: "Odalar silinemedi." };
+  return { ok: true, silinen: temiz.length };
+}
+
 export async function adminOdalar(): Promise<AdminOdaOzet[]> {
   const admin = createAdminClient();
   const { data: odalar } = await admin
