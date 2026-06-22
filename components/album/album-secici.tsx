@@ -5,7 +5,7 @@
 // foto seçimi (limit kontrollü), sıralama, kapak, bölüm. "Tamamla" sonrası
 // readonly. Albümü admin üretir (PDF). Tüm yazma token-gated public uçlardan.
 // =============================================================
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   GripVertical,
   Star,
@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Download,
   ImageIcon,
+  Check,
 } from "lucide-react";
 import { BOLUM_DUZEN, VARSAYILAN_BOLUM, paketEtiket } from "@/lib/album/sabit";
 import type { AlbumSecimVeri } from "@/lib/album/veri";
@@ -48,6 +49,7 @@ export function AlbumSecici({
   const [islem, setIslem] = useState<null | "kaydet" | "tamamla">(null);
   const [mesaj, setMesaj] = useState<string | null>(null);
   const [hata, setHata] = useState<string | null>(null);
+  const [kapakModal, setKapakModal] = useState(false);
   const surukle = useRef<number | null>(null);
 
   const limit = veri.limit_adet;
@@ -169,6 +171,26 @@ export function AlbumSecici({
     return m;
   }, [secili]);
 
+  // Kapak modalı açıkken arka plan kaymasın + Esc ile kapansın.
+  useEffect(() => {
+    if (!kapakModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setKapakModal(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const eski = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = eski;
+    };
+  }, [kapakModal]);
+
+  function kapakSec(mediaId: string) {
+    setKapak(mediaId);
+    setKapakModal(false);
+  }
+
   // ---- Tamamlandı: readonly özet ----
   if (tamamlandi) {
     return (
@@ -274,83 +296,50 @@ export function AlbumSecici({
           </div>
         </div>
 
-        {/* Kapak Fotoğrafı — ayrı seçim alanı */}
-        <div className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5 text-primary" />
-            <h2 className="font-display text-lg font-semibold">Kapak Fotoğrafı</h2>
-          </div>
+        {/* Albüm Kapağı — yalnızca seçili kapağın büyük önizlemesi */}
+        <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <h2 className="font-display text-lg font-semibold tracking-tight">
+            Albüm Kapağı
+          </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Albümünüzün ön kapağında görünecek fotoğrafı seçin.
+            Albümünüzün ön kapağında bu fotoğraf görünür.
           </p>
 
-          {secili.length === 0 ? (
-            <p className="mt-4 rounded-2xl border border-dashed border-border bg-card/50 px-4 py-8 text-center text-sm text-muted-foreground">
-              Önce aşağıdan fotoğraf ekleyin, sonra kapağı buradan seçebilirsiniz.
-            </p>
-          ) : (
-            <div className="mt-4 grid gap-5 sm:grid-cols-[200px_1fr] sm:items-start">
-              {/* Seçili kapak önizleme */}
-              <div className="overflow-hidden rounded-2xl border border-primary/40 bg-muted ring-1 ring-primary/20">
-                <div className="relative aspect-[3/4] w-full">
-                  {kapakFoto?.url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={kapakFoto.url}
-                      alt="Albüm kapağı"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                      <ImageIcon className="h-7 w-7 opacity-60" />
-                      <span className="text-xs">Kapak seçilmedi</span>
-                    </div>
-                  )}
-                  <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                    <Star className="h-3 w-3 fill-current" /> Kapak
-                  </span>
-                </div>
-              </div>
-
-              {/* Seçilenler arasından kapak seç */}
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Kapak yapmak için bir fotoğrafa dokunun:
-                </p>
-                <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
-                  {secili.map((f) => (
-                    <button
-                      key={f.media_id}
-                      type="button"
-                      onClick={() => setKapak(f.media_id)}
-                      title="Kapak yap"
-                      className={`relative aspect-square h-20 w-20 shrink-0 overflow-hidden rounded-xl border transition-all ${
-                        kapak === f.media_id
-                          ? "border-primary ring-2 ring-primary"
-                          : "border-border hover:border-primary/60"
-                      }`}
-                    >
-                      {f.url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={f.url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      )}
-                      {kapak === f.media_id && (
-                        <span className="absolute right-1 top-1 rounded-full bg-primary p-0.5 text-primary-foreground">
-                          <Star className="h-3 w-3 fill-current" />
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+          <div className="mt-6 flex flex-col items-center gap-5">
+            <div className="w-full max-w-[230px]">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-muted shadow-elegant ring-1 ring-black/5">
+                {kapakFoto?.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={kapakFoto.url}
+                    alt="Albüm kapağı"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <ImageIcon className="h-8 w-8 opacity-50" />
+                    <span className="text-xs">Henüz kapak yok</span>
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </div>
+
+            <button
+              type="button"
+              onClick={() => setKapakModal(true)}
+              disabled={secili.length === 0}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary-deep disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ImageIcon className="h-4 w-4" />
+              Kapak Fotoğrafını Değiştir
+            </button>
+            {secili.length === 0 && (
+              <p className="text-center text-xs text-muted-foreground">
+                Önce aşağıdan albümünüze fotoğraf ekleyin.
+              </p>
+            )}
+          </div>
+        </section>
 
         {/* Seçilenler (sürükle-bırak sırala) */}
         <h2 className="font-display mt-8 text-lg font-semibold">
@@ -487,6 +476,75 @@ export function AlbumSecici({
           fotoğrafları gösterilir.
         </p>
       </div>
+
+      {/* Kapak seçim modalı — albümdeki seçili fotoğraflardan */}
+      {kapakModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-6"
+          onClick={() => setKapakModal(false)}
+        >
+          <div
+            className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-card shadow-elegant sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div>
+                <h3 className="font-display text-base font-semibold">
+                  Kapak Fotoğrafını Seç
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Albümünüzdeki fotoğraflardan birine dokunun.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setKapakModal(false)}
+                aria-label="Kapat"
+                className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </header>
+
+            <div className="overflow-y-auto p-4">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                {secili.map((f) => {
+                  const seciliKapak = kapak === f.media_id;
+                  return (
+                    <button
+                      key={f.media_id}
+                      type="button"
+                      onClick={() => kapakSec(f.media_id)}
+                      className={`relative aspect-square overflow-hidden rounded-xl transition-all ${
+                        seciliKapak
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-card"
+                          : "ring-1 ring-black/5 hover:ring-2 hover:ring-primary/50"
+                      }`}
+                    >
+                      {f.url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={f.url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      )}
+                      {seciliKapak && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-primary/25">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow">
+                            <Check className="h-4 w-4" />
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
