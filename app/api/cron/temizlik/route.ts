@@ -8,6 +8,7 @@
 // =============================================================
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { depoOdaKlasoruSil } from "@/lib/oda/veri";
 
 export const dynamic = "force-dynamic";
 
@@ -39,30 +40,11 @@ async function temizle(request: Request) {
 
   for (const oda of odalar) {
     const id = oda.id as string;
-    // Depolama temizliği — 1000'er sayfa, hepsi silinene dek.
+    // Depolama temizliği — türevler (thumb/medium) dahil, hepsi silinene dek.
     let depoTamam = true;
     for (const bucket of ["event-media", "event-audio"]) {
       try {
-        // Aynı klasörde dosya kalmayana kadar sayfa sayfa sil.
-        // (offset kullanmıyoruz; sildikçe baştan tekrar listeler.)
-        for (let tur = 0; tur < 100; tur++) {
-          const { data: objs, error: lErr } = await admin.storage
-            .from(bucket)
-            .list(id, { limit: 1000 });
-          if (lErr) {
-            depoTamam = false;
-            break;
-          }
-          if (!objs || objs.length === 0) break;
-          const { error: rErr } = await admin.storage
-            .from(bucket)
-            .remove(objs.map((o) => `${id}/${o.name}`));
-          if (rErr) {
-            depoTamam = false;
-            break;
-          }
-          if (objs.length < 1000) break;
-        }
+        if (!(await depoOdaKlasoruSil(admin, bucket, id))) depoTamam = false;
       } catch {
         depoTamam = false;
       }

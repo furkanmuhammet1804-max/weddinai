@@ -332,6 +332,7 @@ export function MusteriPanel({
               type="button"
               onClick={() => setQrAcik(true)}
               title="Misafir QR kodunu paylaş"
+              aria-label="Misafir QR kodunu paylaş"
               className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary"
             >
               <QrCode className="h-4 w-4" />
@@ -342,6 +343,7 @@ export function MusteriPanel({
               onClick={yenile}
               disabled={yenileniyor}
               title="Yeni yüklemeleri getir"
+              aria-label="Yeni yüklemeleri getir"
               className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
             >
               <RefreshCw
@@ -353,6 +355,8 @@ export function MusteriPanel({
               type="button"
               onClick={cikisYap}
               disabled={cikis}
+              title="Çıkış"
+              aria-label="Çıkış yap"
               className="inline-flex items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-foreground/70 transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
             >
               {cikis ? (

@@ -378,6 +378,38 @@ export function kalanGun(expires_at: string | null | undefined): number | null {
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
 }
 
+// Bir bucket'ta bir oda klasörünü ALT KLASÖRLERİYLE birlikte temizler.
+// Türevler <id>/thumb/* ve <id>/medium/* alt klasörlerinde tutulduğu için
+// düz list(id) bunları atlardı → yetim dosya. Önce alt klasörler, sonra kök.
+// Döndürür: tamamen temizlenebildi mi (true) yoksa hata oldu mu (false).
+export async function depoOdaKlasoruSil(
+  admin: ReturnType<typeof createAdminClient>,
+  bucket: string,
+  id: string,
+): Promise<boolean> {
+  for (const onek of [`${id}/thumb`, `${id}/medium`, id]) {
+    for (let tur = 0; tur < 100; tur++) {
+      const { data: objs, error: lErr } = await admin.storage
+        .from(bucket)
+        .list(onek, { limit: 1000 });
+      if (lErr) return false;
+      if (!objs || objs.length === 0) break;
+      // Yalnızca gerçek dosyaları sil; alt klasör placeholder'larını (id=null) atla.
+      const dosyalar = objs
+        .filter((o) => o.id !== null)
+        .map((o) => `${onek}/${o.name}`);
+      if (dosyalar.length > 0) {
+        const { error: rErr } = await admin.storage
+          .from(bucket)
+          .remove(dosyalar);
+        if (rErr) return false;
+      }
+      if (objs.length < 1000) break;
+    }
+  }
+  return true;
+}
+
 // Yönetici: bir veya daha çok odayı TAMAMEN siler (depolama dosyaları + DB cascade).
 // Depolama temizliği başarısız olsa bile DB silme denenir. Döndürür: silinen sayısı.
 export async function odalariSil(
@@ -388,18 +420,11 @@ export async function odalariSil(
     return { ok: false, silinen: 0, hata: "Oda kimliği gerekli." };
   const admin = createAdminClient();
 
-  // Her odanın depolama klasörünü iki bucket'ta da temizle.
+  // Her odanın depolama klasörünü iki bucket'ta da (türevler dahil) temizle.
   for (const id of temiz) {
     for (const bucket of ["event-media", "event-audio"]) {
       try {
-        const { data: objs } = await admin.storage
-          .from(bucket)
-          .list(id, { limit: 1000 });
-        if (objs && objs.length > 0) {
-          await admin.storage
-            .from(bucket)
-            .remove(objs.map((o) => `${id}/${o.name}`));
-        }
+        await depoOdaKlasoruSil(admin, bucket, id);
       } catch {
         /* depolama temizliği başarısız olsa da DB silmeye devam */
       }

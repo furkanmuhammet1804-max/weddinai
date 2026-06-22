@@ -6,6 +6,7 @@ import {
   type Etkinlik,
 } from "@/lib/davetiye";
 import { TEMA_IDLER, type DavetiyeTemaId } from "@/lib/davetiye-tema";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
 
 const kirp = (v: unknown, n: number) =>
   typeof v === "string" ? v.trim().slice(0, n) || null : null;
@@ -33,6 +34,15 @@ function etkinlikleriTemizle(v: unknown): Etkinlik[] {
 }
 
 export async function POST(request: Request) {
+  const ip = istemciIp(request);
+  const lim = rateLimit(`davetiye-talep:${ip}`, 6, 60_000);
+  if (!lim.izin) {
+    return NextResponse.json(
+      { hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." },
+      { status: 429, headers: { "Retry-After": String(lim.kalanSn) } },
+    );
+  }
+
   let b: Record<string, unknown>;
   try {
     b = await request.json();

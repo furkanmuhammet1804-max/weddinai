@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   UploadCloud,
@@ -664,6 +664,17 @@ function AniBirak({
   // Ses kaydı
   const [kayitta, setKayitta] = useState(false);
   const [sesBlob, setSesBlob] = useState<Blob | null>(null);
+  // Blob URL'i blob başına bir kez üret + temizle; render içinde
+  // URL.createObjectURL çağırmak her render'da yeni URL sızdırır ve ses
+  // oynatmayı sıfırlardı.
+  const sesUrl = useMemo(
+    () => (sesBlob ? URL.createObjectURL(sesBlob) : null),
+    [sesBlob],
+  );
+  useEffect(() => {
+    if (!sesUrl) return;
+    return () => URL.revokeObjectURL(sesUrl);
+  }, [sesUrl]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const parcalarRef = useRef<Blob[]>([]);
   const sesTipiRef = useRef<{ mimeType?: string; uzanti: string }>({
@@ -830,11 +841,11 @@ function AniBirak({
         <Sparkles className="h-3.5 w-3.5" /> AI ile yardım al
       </button>
 
-      {sesBlob && (
+      {sesBlob && sesUrl && (
         <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted px-3 py-2">
           <Mic className="h-4 w-4 shrink-0 text-primary" />
           <audio
-            src={URL.createObjectURL(sesBlob)}
+            src={sesUrl}
             controls
             className="h-8 w-full"
           />

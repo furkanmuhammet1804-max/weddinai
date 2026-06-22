@@ -95,12 +95,13 @@ export function AlbumEditor({
   }
 
   function cikar(i: number) {
-    setFotolar((o) => {
-      const f = o[i];
-      setHavuz((h) => [{ media_id: f.media_id, url: f.url, favori: false, aday: false }, ...h]);
-      if (kapak === f.media_id) setKapak(null);
-      return o.filter((_, j) => j !== i);
-    });
+    // State updater'ları saf olmalı; setter'ları updater dışında, üst seviyede
+    // çağır (Strict Mode/concurrent çift çağırmada havuza iki kez ekleme olmasın).
+    const f = fotolar[i];
+    if (!f) return;
+    setFotolar((o) => o.filter((_, j) => j !== i));
+    setHavuz((h) => [{ media_id: f.media_id, url: f.url, favori: false, aday: false }, ...h]);
+    if (kapak === f.media_id) setKapak(null);
   }
 
   function havuzdanEkle(h: HavuzFoto) {

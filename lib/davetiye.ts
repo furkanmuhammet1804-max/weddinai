@@ -146,9 +146,16 @@ export async function davetiyeMedyaGuncelle(
   medya: { gelin_foto?: string; damat_foto?: string; foto_paths?: string[]; muzik_path?: string },
 ): Promise<boolean> {
   const admin = createAdminClient();
-  const { error } = await admin.from("davetiyeler").update(medya).eq("id", id);
+  // Yalnızca yeni gelen talep güncellenebilir; yayınlanmış/işlenmiş davetiyenin
+  // medyası bu public uçtan değiştirilemez (IDOR/üzerine yazma sertleştirme).
+  const { data, error } = await admin
+    .from("davetiyeler")
+    .update(medya)
+    .eq("id", id)
+    .eq("durum", "talep_alindi")
+    .select("id");
   if (error) console.error("[davetiye] medya guncelle hata", error.message);
-  return !error;
+  return !error && (data?.length ?? 0) > 0;
 }
 
 export async function davetiyeListe(): Promise<Davetiye[]> {

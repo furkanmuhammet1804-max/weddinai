@@ -548,6 +548,13 @@ export async function albumSecimKaydet(
     .eq("id", a.id);
   if (uErr) return { ok: false, hata: "Kaydedilemedi." };
 
+  // delete→insert atomik değil: insert başarısız olursa müşterinin önceki
+  // küratörlüğü kaybolmasın diye önceki satırları yedekleyip geri yükleriz.
+  const { data: yedek } = await admin
+    .from("album_fotograflar")
+    .select("media_id, bolum, sira")
+    .eq("album_id", a.id);
+
   await admin.from("album_fotograflar").delete().eq("album_id", a.id);
   if (g.fotograflar.length) {
     const satirlar = g.fotograflar.map((f) => ({
@@ -557,7 +564,20 @@ export async function albumSecimKaydet(
       sira: f.sira,
     }));
     const { error: iErr } = await admin.from("album_fotograflar").insert(satirlar);
-    if (iErr) return { ok: false, hata: "Fotoğraflar kaydedilemedi." };
+    if (iErr) {
+      // Geri yükle: yeni seçim yazılamadı, eski seçimi kurtarmaya çalış.
+      if (yedek && yedek.length > 0) {
+        await admin.from("album_fotograflar").insert(
+          yedek.map((r) => ({
+            album_id: a.id,
+            media_id: r.media_id as string,
+            bolum: (r.bolum as string) ?? null,
+            sira: (r.sira as number) ?? 0,
+          })),
+        );
+      }
+      return { ok: false, hata: "Fotoğraflar kaydedilemedi." };
+    }
   }
   return { ok: true };
 }
@@ -575,11 +595,16 @@ export async function albumSecimTamamla(
     .maybeSingle();
   if (!a) return { ok: false, hata: "Albüm bulunamadı." };
   if (a.secim_tamamlandi) return { ok: true }; // idempotent
+  const now = new Date().toISOString();
   const { error } = await admin
     .from("albumler")
     .update({
       secim_tamamlandi: true,
-      secim_tamamlandi_at: new Date().toISOString(),
+      secim_tamamlandi_at: now,
+      // PDF kapağındaki tarih published_at'e bağlı; müşteri tamamlayınca yaz ki
+      // sistemce üretilen albümde de düğün tarihi görünsün (yayın gatekeeping
+      // durum alanına bağlı, published_at'e değil — yan etki yok).
+      published_at: now,
       durum: "taslak",
     })
     .eq("id", a.id);

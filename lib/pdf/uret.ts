@@ -43,7 +43,8 @@ function topla(doc: PDFKit.PDFDocument): Promise<Buffer> {
 async function gorselBaytlari(url: string | null): Promise<Buffer | null> {
   if (!url) return null;
   try {
-    const r = await fetch(url);
+    // Takılan bir depolama URL'i tüm PDF üretimini süresiz bloklamasın.
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!r.ok) return null;
     return Buffer.from(await r.arrayBuffer());
   } catch {

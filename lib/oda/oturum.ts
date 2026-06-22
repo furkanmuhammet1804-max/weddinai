@@ -1,8 +1,10 @@
 // =============================================================
 // MÜŞTERİ ODA OTURUMU — imzalı (HMAC) çerez.
 // Müşterinin Supabase hesabı yok; oda şifresini doğruladıktan sonra
-// burada imzalı bir çerez bırakırız. Çerez yalnızca <eventId> taşır ve
-// slug'a bağlı imzalanır → kurcalanamaz, başka odaya taşınamaz.
+// burada imzalı bir çerez bırakırız. Çerez <eventId> + son kullanma (exp)
+// taşır ve slug'a bağlı imzalanır → kurcalanamaz, başka odaya taşınamaz ve
+// sunucu tarafında süresi dolunca reddedilir (yakalanan çerez sonsuza dek
+// geçerli kalmaz).
 // =============================================================
 import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -19,9 +21,10 @@ function imzaAnahtari(): string {
   return k;
 }
 
-function imzala(eventId: string, slug: string): string {
+// İmza, son kullanma (exp) dahil hesaplanır → eski çerez tekrar oynatılamaz.
+function imzala(eventId: string, slug: string, exp: number): string {
   return createHmac("sha256", imzaAnahtari())
-    .update(`${eventId}:${slug.toLowerCase()}`)
+    .update(`${eventId}:${slug.toLowerCase()}:${exp}`)
     .digest("base64url");
 }
 
@@ -34,7 +37,8 @@ function imzaEsit(a: string, b: string): boolean {
 
 // Doğrulanmış oda için çerezi kurar.
 export async function odaOturumKur(eventId: string, slug: string) {
-  const token = `${eventId}.${imzala(eventId, slug)}`;
+  const exp = Math.floor(Date.now() / 1000) + OMUR_SN;
+  const token = `${eventId}.${exp}.${imzala(eventId, slug, exp)}`;
   const store = await cookies();
   store.set(COOKIE_ADI, token, {
     httpOnly: true,
@@ -45,17 +49,19 @@ export async function odaOturumKur(eventId: string, slug: string) {
   });
 }
 
-// Geçerli oturumun bu slug'a ait eventId'sini döndürür; yoksa null.
+// Geçerli oturumun bu slug'a ait eventId'sini döndürür; yoksa/süresi dolmuşsa null.
 export async function odaOturumOku(slug: string): Promise<string | null> {
   const store = await cookies();
   const ham = store.get(COOKIE_ADI)?.value;
   if (!ham) return null;
-  const nokta = ham.lastIndexOf(".");
-  if (nokta < 0) return null;
-  const eventId = ham.slice(0, nokta);
-  const imza = ham.slice(nokta + 1);
-  if (!eventId || !imza) return null;
-  if (!imzaEsit(imza, imzala(eventId, slug))) return null;
+  // Biçim: <eventId>.<exp>.<imza>  (UUID/sayı/base64url içinde nokta yok)
+  const parcalar = ham.split(".");
+  if (parcalar.length !== 3) return null;
+  const [eventId, expStr, imza] = parcalar;
+  if (!eventId || !expStr || !imza) return null;
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp <= Math.floor(Date.now() / 1000)) return null;
+  if (!imzaEsit(imza, imzala(eventId, slug, exp))) return null;
   return eventId;
 }
 

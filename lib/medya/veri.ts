@@ -329,16 +329,22 @@ export async function kucukUret(
 
   const tPath = varyantPath(m.storage_path as string, "thumb");
   const mPath = varyantPath(m.storage_path as string, "medium");
-  const [t, md] = await Promise.all([
-    admin.storage.from(MEDYA_BUCKET).upload(tPath, thumb, {
-      contentType: "image/webp",
-      upsert: true,
-    }),
-    admin.storage.from(MEDYA_BUCKET).upload(mPath, medium, {
-      contentType: "image/webp",
-      upsert: true,
-    }),
-  ]);
+  let t, md;
+  try {
+    [t, md] = await Promise.all([
+      admin.storage.from(MEDYA_BUCKET).upload(tPath, thumb, {
+        contentType: "image/webp",
+        upsert: true,
+      }),
+      admin.storage.from(MEDYA_BUCKET).upload(mPath, medium, {
+        contentType: "image/webp",
+        upsert: true,
+      }),
+    ]);
+  } catch {
+    return { ok: false };
+  }
+  // Her iki türev de yüklenmeden "hazır" işaretleme → grid kırık küçük resim ister.
   if (t.error || md.error) return { ok: false };
 
   await admin

@@ -39,6 +39,7 @@ export function MedyaMerkezi({
   onayToken: string | null;
 }) {
   const [onay, setOnay] = useState(durumIlk.ai_medya_onay);
+  const [onaylaniyor, setOnaylaniyor] = useState(false);
   const [kalan, setKalan] = useState(durumIlk.bekleyen);
   const [calisiyor, setCalisiyor] = useState(false);
   const [ilerleme, setIlerleme] = useState<string | null>(null);
@@ -55,6 +56,8 @@ export function MedyaMerkezi({
   }
 
   async function onayDegistir(yeni: boolean) {
+    if (onaylaniyor) return; // hızlı çift-tıklama → çakışan POST'ları engelle
+    setOnaylaniyor(true);
     setHata(null);
     try {
       const res = await fetch("/api/admin/medya/onay", {
@@ -67,6 +70,8 @@ export function MedyaMerkezi({
       setOnay(yeni);
     } catch (err) {
       setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
+    } finally {
+      setOnaylaniyor(false);
     }
   }
 
@@ -243,8 +248,9 @@ export function MedyaMerkezi({
             <input
               type="checkbox"
               checked={onay}
+              disabled={onaylaniyor}
               onChange={(e) => onayDegistir(e.target.checked)}
-              className="h-4 w-4 accent-primary"
+              className="h-4 w-4 accent-primary disabled:opacity-50"
             />
             <span className="text-sm font-medium">Elle {onay ? "kaldır" : "onayla"}</span>
           </label>

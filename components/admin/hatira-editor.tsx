@@ -95,13 +95,17 @@ export function HatiraEditor({
     setIslem("yayin");
     setHata(null);
     try {
-      // Yayınlamadan önce mevcut düzenlemeyi kaydet.
+      // Yayınlamadan önce mevcut düzenlemeyi kaydet — kaydetme başarısızsa
+      // yayınlama, kaydedilmemiş içeriği canlıya almasın diye DUR.
       if (yayinla) {
-        await fetch("/api/admin/hatira/kaydet", {
+        const kRes = await fetch("/api/admin/hatira/kaydet", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id, baslik, icerik }),
         });
+        const kData = await kRes.json().catch(() => ({}));
+        if (!kRes.ok || !kData.ok)
+          throw new Error(kData.hata ?? "Önce kaydedilemedi.");
       }
       const res = await fetch("/api/admin/hatira/yayinla", {
         method: "POST",

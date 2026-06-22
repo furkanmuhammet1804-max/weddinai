@@ -1,8 +1,20 @@
 // Yönetici girişi: kullanıcı adı + şifre env ile eşleşirse imzalı çerez kur.
 import { NextResponse } from "next/server";
 import { kimlikDogru, adminOturumKur } from "@/lib/admin/oturum";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
 
 export async function POST(request: Request) {
+  // Brute-force koruması: sistemin en hassas kimliği (full service-role) — oda
+  // girişiyle aynı seviyede IP başına hız sınırı.
+  const ip = istemciIp(request);
+  const lim = rateLimit(`admin-giris:${ip}`, 8, 60_000);
+  if (!lim.izin) {
+    return NextResponse.json(
+      { hata: "Çok fazla deneme. Lütfen biraz sonra tekrar deneyin." },
+      { status: 429, headers: { "Retry-After": String(lim.kalanSn) } },
+    );
+  }
+
   let body: { kullanici?: string; sifre?: string };
   try {
     body = await request.json();

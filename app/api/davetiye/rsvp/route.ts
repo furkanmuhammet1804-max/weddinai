@@ -1,8 +1,18 @@
 // Public RSVP — yayındaki davetiyeye katılım bildirimi.
 import { NextResponse } from "next/server";
 import { davetiyeGetirSlug, rsvpEkle } from "@/lib/davetiye";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
 
 export async function POST(request: Request) {
+  const ip = istemciIp(request);
+  const lim = rateLimit(`davetiye-rsvp:${ip}`, 10, 60_000);
+  if (!lim.izin) {
+    return NextResponse.json(
+      { hata: "Çok fazla istek." },
+      { status: 429, headers: { "Retry-After": String(lim.kalanSn) } },
+    );
+  }
+
   let b: {
     slug?: string;
     ad?: string;

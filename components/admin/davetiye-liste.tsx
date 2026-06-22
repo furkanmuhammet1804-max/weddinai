@@ -136,14 +136,12 @@ function DavetiyeKart({ d }: { d: Davetiye }) {
       return;
     }
     const url = `${SITE_URL}/davetiye/${temizSlug}`;
-    console.log("[davetiye] kopyalanacak URL:", url);
     let ok = false;
     try {
       ok = await kopyalaVeBildir(url, "Link kopyalandı");
     } catch (e) {
       console.error("[davetiye] kopya hatası:", e);
     }
-    console.log("[davetiye] kopya sonucu:", ok);
     // Başarısızsa manuel kopyalama için seçilebilir alanı aç.
     setManuelUrl(ok ? null : url);
   }

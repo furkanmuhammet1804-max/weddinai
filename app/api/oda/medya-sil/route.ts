@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { odaOturumOku } from "@/lib/oda/oturum";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { varyantPath } from "@/lib/medya/veri";
 
 export async function POST(request: Request) {
   let body: { slug?: string; mediaId?: string; mediaIds?: string[] };
@@ -41,9 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ hata: "İçerik bulunamadı." }, { status: 404 });
   }
 
-  const yollar = satirlar
-    .map((m) => m.storage_path as string)
-    .filter(Boolean);
+  // Orijinal + türevler (thumb/medium) birlikte silinir; aksi halde küçük
+  // kopyalar depoda yetim kalır ve imzalı URL ile hâlâ erişilebilir olurdu.
+  const yollar: string[] = [];
+  for (const m of satirlar) {
+    const sp = m.storage_path as string;
+    if (!sp) continue;
+    yollar.push(sp, varyantPath(sp, "thumb"), varyantPath(sp, "medium"));
+  }
   if (yollar.length > 0) {
     await admin.storage.from("event-media").remove(yollar);
   }

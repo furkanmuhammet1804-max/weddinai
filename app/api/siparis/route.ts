@@ -1,6 +1,7 @@
 // Public sipariş/talep alma. Anon'a tablo erişimi yok; service_role ile insert.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
 
 const GECERLI_PAKET = new Set(["baslangic", "standart", "premium"]);
 const GECERLI_TUR = new Set([
@@ -14,6 +15,15 @@ const GECERLI_TUR = new Set([
 ]);
 
 export async function POST(request: Request) {
+  const ip = istemciIp(request);
+  const lim = rateLimit(`siparis:${ip}`, 6, 60_000);
+  if (!lim.izin) {
+    return NextResponse.json(
+      { hata: "Çok fazla istek. Lütfen biraz sonra tekrar deneyin." },
+      { status: 429, headers: { "Retry-After": String(lim.kalanSn) } },
+    );
+  }
+
   let body: Record<string, string>;
   try {
     body = await request.json();
@@ -22,7 +32,7 @@ export async function POST(request: Request) {
   }
 
   const paket = GECERLI_PAKET.has(body.paket) ? body.paket : "standart";
-  const customer_name = (body.customer_name ?? "").trim();
+  const customer_name = (body.customer_name ?? "").trim().slice(0, 120);
   const event_type = GECERLI_TUR.has(body.event_type) ? body.event_type : null;
   const event_date = (body.event_date ?? "").trim() || null;
   const phone = (body.phone ?? "").trim() || null;

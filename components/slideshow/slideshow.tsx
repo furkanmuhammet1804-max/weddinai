@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Sparkles, Camera } from "lucide-react";
 import QRCode from "qrcode";
@@ -24,6 +24,24 @@ export function Slideshow({
   const [qr, setQr] = useState("");
   const bilinenRef = useRef<Set<string>>(new Set(ilk.map((f) => f.id)));
   const bildirimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sonTazeleRef = useRef(0);
+
+  // İmzalı URL süresi dolup görsel kırıldığında (halka açık ekranda) hemen
+  // yeni imzalı URL'leri çek. Storm olmasın diye 4 sn'de bir.
+  const tazele = useCallback(async () => {
+    const simdi = Date.now();
+    if (simdi - sonTazeleRef.current < 4000) return;
+    sonTazeleRef.current = simdi;
+    try {
+      const res = await fetch(`/api/slayt/${slug}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const gelen: SlaytFoto[] = data.fotograflar ?? [];
+      if (gelen.length > 0) setFotograflar(gelen);
+    } catch {
+      /* sessiz — bir sonraki turda dene */
+    }
+  }, [slug]);
 
   // Misafir yükleme QR'ı ("sen de paylaş")
   useEffect(() => {
@@ -114,6 +132,7 @@ export function Slideshow({
           <motion.img
             src={mevcut.url}
             alt={mevcut.guest_name ?? "Anı"}
+            onError={tazele}
             initial={{ scale: 1.04 }}
             animate={{ scale: 1.12 }}
             transition={{ duration: GECIS_MS / 1000 + 1.2, ease: "linear" }}

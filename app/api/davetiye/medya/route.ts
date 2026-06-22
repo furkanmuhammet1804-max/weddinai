@@ -2,8 +2,22 @@
 // storage path'lerini kayda bağlar. (Yalnızca o kayıt; path'ler doğrulanır.)
 import { NextResponse } from "next/server";
 import { davetiyeMedyaGuncelle } from "@/lib/davetiye";
+import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: Request) {
+  // Public uç: kötüye kullanımı sınırla (kayıt id'si UUID + IP hız limiti).
+  const ip = istemciIp(request);
+  const lim = rateLimit(`davetiye-medya:${ip}`, 12, 60_000);
+  if (!lim.izin) {
+    return NextResponse.json(
+      { hata: "Çok fazla istek." },
+      { status: 429, headers: { "Retry-After": String(lim.kalanSn) } },
+    );
+  }
+
   let b: {
     id?: string;
     gelin_foto?: string;
@@ -18,7 +32,8 @@ export async function POST(request: Request) {
   }
 
   const id = (b.id ?? "").trim();
-  if (!id) return NextResponse.json({ hata: "id gerekli." }, { status: 400 });
+  if (!UUID_RE.test(id))
+    return NextResponse.json({ hata: "Geçersiz id." }, { status: 400 });
 
   // Güvenlik: yalnızca bu kaydın klasörüne ait path'ler kabul edilir.
   const onek = `${id}/`;
