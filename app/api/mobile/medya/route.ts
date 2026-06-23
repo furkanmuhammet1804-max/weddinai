@@ -1,9 +1,11 @@
-// Mobil medya listesi: bearer token doğrulanır → odanın TÜM medyası
-// (imzalı URL'lerle, web müşteri paneliyle aynı service-role okuması)
-// + galeri üst bilgisi ve istatistik döner. Reddedilen içerik gizlenir.
+// GET /api/mobile/medya — müşteri galerisi. Bearer doğrulanır → odanın TÜM
+// medyası (thumb/medium/original imzalı URL + favori/album_aday) + istatistik.
+// Reddedilen içerik gizlenir. (web müşteri paneliyle aynı service-role okuması)
 import { NextResponse } from "next/server";
 import { bearerToken, mobilTokenCoz } from "@/lib/mobil/token";
 import { odaBilgiId, odaAcikMi, odaMedyalari } from "@/lib/oda/veri";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const oturum = mobilTokenCoz(bearerToken(request));
@@ -22,8 +24,12 @@ export async function GET(request: Request) {
     .map((m) => ({
       id: m.id,
       url: m.url,
-      tur: m.file_type, // "fotograf" | "video"
+      mediumUrl: m.mediumUrl,
+      orijinalUrl: m.orijinalUrl,
+      tur: m.file_type,
       yukleyen: m.guest_name,
+      favori: m.is_favorite,
+      album_aday: m.album_aday,
       tarih: m.created_at,
     }));
 

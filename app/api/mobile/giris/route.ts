@@ -1,12 +1,10 @@
-// Mobil oda girişi: oda kodu (slug) + şifre → web ile AYNI RPC (oda_dogrula)
-// service-role ile çağrılır; doğruysa imzalı bearer token döner.
+// POST /api/mobile/giris — mobil oda girişi: oda kodu (slug) + şifre → web ile
+// AYNI RPC (oda_dogrula), service-role. Doğruysa imzalı bearer token döner.
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mobilTokenUret } from "@/lib/mobil/token";
 import { rateLimit, istemciIp } from "@/lib/mobil/rate-limit";
 
-// Brute-force eşikleri: IP başına 10/dk, IP×oda başına 5/dk (bir odayı
-// hedefli kırmayı yavaşlatır). bcrypt'in yavaşlığıyla birlikte ilk savunma.
 const PENCERE_MS = 60_000;
 const IP_LIMIT = 10;
 const KOMBO_LIMIT = 5;
@@ -33,18 +31,10 @@ export async function POST(request: Request) {
   const kod = (body.kod ?? "").trim();
   const sifre = body.sifre ?? "";
   if (!kod || !sifre) {
-    return NextResponse.json(
-      { hata: "Oda kodu ve şifre gerekli." },
-      { status: 400 },
-    );
+    return NextResponse.json({ hata: "Oda kodu ve şifre gerekli." }, { status: 400 });
   }
 
-  // Hedefli (tek odaya) brute-force için daha sıkı kombo limiti.
-  const komboKontrol = rateLimit(
-    `giris:kod:${ip}:${kod.toLowerCase()}`,
-    KOMBO_LIMIT,
-    PENCERE_MS,
-  );
+  const komboKontrol = rateLimit(`giris:kod:${ip}:${kod.toLowerCase()}`, KOMBO_LIMIT, PENCERE_MS);
   if (!komboKontrol.izin) return asimYaniti(komboKontrol.kalanSn);
 
   const admin = createAdminClient();
@@ -53,24 +43,15 @@ export async function POST(request: Request) {
     p_password: sifre,
   });
   if (error) {
-    return NextResponse.json(
-      { hata: "Doğrulama sırasında bir hata oluştu." },
-      { status: 500 },
-    );
+    return NextResponse.json({ hata: "Doğrulama sırasında bir hata oluştu." }, { status: 500 });
   }
 
   const oda = Array.isArray(data) ? data[0] : data;
   if (!oda) {
-    return NextResponse.json(
-      { hata: "Oda kodu veya şifre hatalı." },
-      { status: 401 },
-    );
+    return NextResponse.json({ hata: "Oda kodu veya şifre hatalı." }, { status: 401 });
   }
   if (oda.status !== "aktif") {
-    return NextResponse.json(
-      { hata: "Bu oda şu an erişime kapalı." },
-      { status: 403 },
-    );
+    return NextResponse.json({ hata: "Bu oda şu an erişime kapalı." }, { status: 403 });
   }
 
   const token = mobilTokenUret(oda.id as string, oda.slug as string);

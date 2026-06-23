@@ -38,6 +38,7 @@ export interface OdaMedya {
   showroom_requested: boolean;
   is_favorite: boolean;
   album_aday: boolean;
+  kategori: string | null;
   status: string;
   created_at: string;
 }
@@ -92,7 +93,7 @@ export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
   const { data } = await admin
     .from("media")
     .select(
-      "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, album_aday, status, created_at, kucuk_hazir",
+      "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, album_aday, kategori, status, created_at, kucuk_hazir",
     )
     .eq("event_id", eventId)
     .order("created_at", { ascending: false });
@@ -134,6 +135,7 @@ export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
     showroom_requested: !!m.showroom_requested,
     is_favorite: !!m.is_favorite,
     album_aday: !!m.album_aday,
+    kategori: (m.kategori as string) ?? null,
     status: m.status as string,
     created_at: m.created_at as string,
     };
