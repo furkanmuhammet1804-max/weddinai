@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, Sparkles, Camera } from "lucide-react";
 import QRCode from "qrcode";
 import type { SlaytFoto } from "@/lib/oda/veri";
+import { siteLinki } from "@/lib/site";
 
 const GECIS_MS = 6000; // fotoğraf başına süre
 const POLL_MS = 18000; // yeni fotoğraf kontrol aralığı
@@ -45,7 +46,7 @@ export function Slideshow({
 
   // Misafir yükleme QR'ı ("sen de paylaş")
   useEffect(() => {
-    const url = `${window.location.origin}/e/${slug}`;
+    const url = siteLinki(`/e/${slug}`);
     QRCode.toDataURL(url, { width: 240, margin: 1 })
       .then(setQr)
       .catch(() => setQr(""));

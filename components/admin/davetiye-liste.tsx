@@ -19,12 +19,9 @@ import {
 import type { Davetiye } from "@/lib/davetiye";
 import { temaBul } from "@/lib/davetiye-tema";
 import { kopyalaVeBildir, bildir } from "@/lib/pano";
-
 // Kopyalanan davetiye linki daima kanonik üretim alanını gösterir
 // (admin vercel önizleme alanından açılsa bile doğru link paylaşılır).
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.weddinai.com"
-).replace(/\/+$/, "");
+import { SITE_URL } from "@/lib/site";
 
 // (Sunucu modülünü client'a çekmemek için durumlar burada da tanımlı.)
 const DURUMLAR: { id: string; etiket: string; sinif: string }[] = [

@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { blobIndir, formIleIndir } from "@/lib/indir";
 import { kopyalaVeBildir } from "@/lib/pano";
+import { siteLinki } from "@/lib/site";
 import Link from "next/link";
 import type { OdaBilgi, OdaMedya, OdaAni } from "@/lib/oda/veri";
 import type { AlbumHakBilgi } from "@/lib/album/veri";
@@ -684,18 +685,13 @@ export function MusteriPanel({
 /* ----------------------- QR Paylaş modalı ----------------------- */
 function QrModal({ slug, onKapat }: { slug: string; onKapat: () => void }) {
   const [qr, setQr] = useState("");
-  const [origin, setOrigin] = useState("");
   const [kopya, setKopya] = useState(false);
 
-  useEffect(() => {
-    // Tarayıcı-yalnız okuma; SSR'de window yok, mount sonrası kasıtlı.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOrigin(window.location.origin);
-  }, []);
-  const misafirLink = origin ? `${origin}/e/${slug}` : "";
+  // Misafir linki daima kanonik üretim alanını gösterir (apex/önizleme
+  // alanından açılsa bile güvenli ve doğru link paylaşılır).
+  const misafirLink = siteLinki(`/e/${slug}`);
 
   useEffect(() => {
-    if (!misafirLink) return;
     QRCode.toDataURL(misafirLink, { width: 600, margin: 2 })
       .then(setQr)
       .catch(() => setQr(""));

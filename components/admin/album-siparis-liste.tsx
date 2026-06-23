@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { paketEtiket } from "@/lib/album/sabit";
 import type { AlbumSiparisSatir } from "@/lib/album/veri";
+import { siteLinki } from "@/lib/site";
 
 function tarihTR(iso: string | null): string {
   if (!iso) return "—";
@@ -59,7 +60,7 @@ export function AlbumSiparisListe({ liste }: { liste: AlbumSiparisSatir[] }) {
 
   function linkKopyala(token: string | null) {
     if (!token) return;
-    const url = `${window.location.origin}/album-sec/${token}`;
+    const url = siteLinki(`/album-sec/${token}`);
     navigator.clipboard?.writeText(url).then(
       () => {
         setMesaj("Müşteri seçim linki kopyalandı.");

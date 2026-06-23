@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { formIleIndir } from "@/lib/indir";
 import { kopyalaVeBildir } from "@/lib/pano";
+import { siteLinki } from "@/lib/site";
 import {
   ArrowLeft,
   Copy,
@@ -63,22 +64,16 @@ export function AdminOdaDetay({
   onayToken: string | null;
 }) {
   const router = useRouter();
-  const [origin, setOrigin] = useState("");
   const [qr, setQr] = useState("");
 
-  useEffect(() => {
-    // Tarayıcı-yalnız okuma; SSR'de window yok, mount sonrası kasıtlı.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOrigin(window.location.origin);
-  }, []);
-
-  const musteriLink = origin ? `${origin}/oda/${oda.slug}` : "";
-  const misafirLink = origin ? `${origin}/e/${oda.slug}` : "";
-  const showroomLink = origin ? `${origin}/showroom/${oda.slug}` : "";
-  const slaytLink = origin ? `${origin}/slayt/${oda.slug}` : "";
+  // Paylaşım linkleri daima kanonik üretim alanını gösterir; admin panel
+  // apex/önizleme alanından açılsa bile misafir doğru ve güvenli linki alır.
+  const musteriLink = siteLinki(`/oda/${oda.slug}`);
+  const misafirLink = siteLinki(`/e/${oda.slug}`);
+  const showroomLink = siteLinki(`/showroom/${oda.slug}`);
+  const slaytLink = siteLinki(`/slayt/${oda.slug}`);
 
   useEffect(() => {
-    if (!misafirLink) return;
     QRCode.toDataURL(misafirLink, { width: 520, margin: 2 })
       .then(setQr)
       .catch(() => setQr(""));
@@ -575,12 +570,6 @@ function KvkkOnayBolum({
 }) {
   const [token, setToken] = useState<string | null>(onayTokenIlk);
   const [deneniyor, setDeneniyor] = useState(!onayTokenIlk);
-  const [origin, setOrigin] = useState("");
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOrigin(window.location.origin);
-  }, []);
 
   useEffect(() => {
     if (token) return;
@@ -613,7 +602,7 @@ function KvkkOnayBolum({
     };
   }, [token, odaId]);
 
-  const link = origin && token ? `${origin}/ai-onay/${token}` : "";
+  const link = token ? siteLinki(`/ai-onay/${token}`) : "";
 
   if (token) {
     return (
@@ -667,7 +656,7 @@ function AlbumHakkiBolum({ odaId }: { odaId: string }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok || !data.token)
         throw new Error(data.hata ?? "İşlem başarısız.");
-      setLink(`${window.location.origin}/album-sec/${data.token}`);
+      setLink(siteLinki(`/album-sec/${data.token}`));
     } catch (err) {
       setHata(err instanceof Error ? err.message : "Bir hata oluştu.");
     } finally {

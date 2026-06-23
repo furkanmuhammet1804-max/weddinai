@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { MEDYA_KATEGORILER, kategoriEtiket } from "@/lib/medya/sabit";
 import type { MedyaFoto, KategoriDurum } from "@/lib/medya/veri";
+import { siteLinki } from "@/lib/site";
 
 type Filtre = "hepsi" | "kategorisiz" | string;
 
@@ -77,7 +78,7 @@ export function MedyaMerkezi({
 
   function linkKopyala() {
     if (!onayToken) return;
-    const url = `${window.location.origin}/ai-onay/${onayToken}`;
+    const url = siteLinki(`/ai-onay/${onayToken}`);
     navigator.clipboard?.writeText(url).then(
       () => bildir("KVKK onay linki kopyalandı."),
       () => bildir(url),

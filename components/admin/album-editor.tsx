@@ -24,6 +24,7 @@ import {
   Heart,
 } from "lucide-react";
 import { BOLUM_DUZEN, VARSAYILAN_BOLUM, paketEtiket } from "@/lib/album/sabit";
+import { siteLinki } from "@/lib/site";
 
 interface Foto {
   media_id: string;
@@ -180,7 +181,7 @@ export function AlbumEditor({
 
   function paylasimKopyala() {
     if (!slug) return;
-    const url = `${window.location.origin}/album/${slug}`;
+    const url = siteLinki(`/album/${slug}`);
     navigator.clipboard?.writeText(url).then(
       () => bildir("Paylaşım linki kopyalandı."),
       () => bildir(url),
