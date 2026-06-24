@@ -88,32 +88,28 @@ export function odaAcikMi(bilgi: OdaBilgi | null): boolean {
   return true;
 }
 
-export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("media")
-    .select(
-      "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, album_aday, medya_kategori, status, created_at, kucuk_hazir",
-    )
-    .eq("event_id", eventId)
-    .order("created_at", { ascending: false });
-  const satirlar = data ?? [];
+const MEDYA_SELECT =
+  "id, storage_path, file_type, guest_name, showroom_approved, showroom_requested, is_favorite, album_aday, medya_kategori, status, created_at, kucuk_hazir";
 
-  // Türevi hazır FOTOĞRAFLAR için thumb/medium yolları; gerisi orijinale fallback.
-  const turevliFoto = (m: (typeof satirlar)[number]) =>
+// Medya satırlarını imzalı URL'li OdaMedya'ya çevirir. İmzalı URL üretimi YALNIZ
+// verilen satırlar için yapılır → çağıran sayfalayarak maliyeti sabitler
+// (5000+ fotoğrafta tek sayfa = 50 satır → ~150 imza, tüm set değil).
+async function medyaSatirBindir(
+  satirlar: Record<string, unknown>[],
+): Promise<OdaMedya[]> {
+  const turevliFoto = (m: Record<string, unknown>) =>
     !!m.kucuk_hazir && m.file_type === "fotograf";
-  const harita = await imzaliUrlHaritasi(
-    MEDYA_BUCKET,
-    satirlar.map((m) => m.storage_path as string),
-  );
-  const thumbHarita = await imzaliUrlHaritasi(
-    MEDYA_BUCKET,
-    satirlar.filter(turevliFoto).map((m) => varyantPath(m.storage_path as string, "thumb")),
-  );
-  const mediumHarita = await imzaliUrlHaritasi(
-    MEDYA_BUCKET,
-    satirlar.filter(turevliFoto).map((m) => varyantPath(m.storage_path as string, "medium")),
-  );
+  const [harita, thumbHarita, mediumHarita] = await Promise.all([
+    imzaliUrlHaritasi(MEDYA_BUCKET, satirlar.map((m) => m.storage_path as string)),
+    imzaliUrlHaritasi(
+      MEDYA_BUCKET,
+      satirlar.filter(turevliFoto).map((m) => varyantPath(m.storage_path as string, "thumb")),
+    ),
+    imzaliUrlHaritasi(
+      MEDYA_BUCKET,
+      satirlar.filter(turevliFoto).map((m) => varyantPath(m.storage_path as string, "medium")),
+    ),
+  ]);
 
   return satirlar.map((m) => {
     const sp = m.storage_path as string;
@@ -125,21 +121,87 @@ export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
       ? (mediumHarita.get(varyantPath(sp, "medium")) ?? orijinal)
       : orijinal;
     return {
-    id: m.id as string,
-    url: thumb,
-    mediumUrl: medium,
-    orijinalUrl: orijinal,
-    file_type: m.file_type as FotoVideo,
-    guest_name: (m.guest_name as string) ?? null,
-    showroom_approved: !!m.showroom_approved,
-    showroom_requested: !!m.showroom_requested,
-    is_favorite: !!m.is_favorite,
-    album_aday: !!m.album_aday,
-    kategori: (m.medya_kategori as string) ?? null,
-    status: m.status as string,
-    created_at: m.created_at as string,
+      id: m.id as string,
+      url: thumb,
+      mediumUrl: medium,
+      orijinalUrl: orijinal,
+      file_type: m.file_type as FotoVideo,
+      guest_name: (m.guest_name as string) ?? null,
+      showroom_approved: !!m.showroom_approved,
+      showroom_requested: !!m.showroom_requested,
+      is_favorite: !!m.is_favorite,
+      album_aday: !!m.album_aday,
+      kategori: (m.medya_kategori as string) ?? null,
+      status: m.status as string,
+      created_at: m.created_at as string,
     };
   });
+}
+
+// Odanın TÜM medyası (admin grid + showroom — bunlar tüm seti süzer).
+export async function odaMedyalari(eventId: string): Promise<OdaMedya[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("media")
+    .select(MEDYA_SELECT)
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  return medyaSatirBindir((data ?? []) as Record<string, unknown>[]);
+}
+
+// Sayfalı medya — müşteri galerisi (created_at DESC, offset/limit). Reddedilen
+// gizli. Yalnız sayfadaki satırlar imzalanır.
+export async function odaMedyalariSayfa(
+  eventId: string,
+  offset: number,
+  limit: number,
+): Promise<OdaMedya[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("media")
+    .select(MEDYA_SELECT)
+    .eq("event_id", eventId)
+    .neq("status", "reddedildi")
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  return medyaSatirBindir((data ?? []) as Record<string, unknown>[]);
+}
+
+// Galeri istatistiği — satır çekmeden count (ucuz, sayfadan bağımsız).
+export async function odaMedyaSayim(eventId: string): Promise<{
+  foto: number;
+  video: number;
+  toplam: number;
+  son_yukleme: string | null;
+}> {
+  const admin = createAdminClient();
+  const say = async (tip: FotoVideo) => {
+    const { count } = await admin
+      .from("media")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", eventId)
+      .eq("file_type", tip)
+      .neq("status", "reddedildi");
+    return count ?? 0;
+  };
+  const [foto, video, son] = await Promise.all([
+    say("fotograf"),
+    say("video"),
+    admin
+      .from("media")
+      .select("created_at")
+      .eq("event_id", eventId)
+      .neq("status", "reddedildi")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  return {
+    foto,
+    video,
+    toplam: foto + video,
+    son_yukleme: (son.data?.created_at as string) ?? null,
+  };
 }
 
 export async function odaAnilari(eventId: string): Promise<OdaAni[]> {

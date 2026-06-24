@@ -3,10 +3,21 @@
 // Reddedilen içerik gizlenir. (web müşteri paneliyle aynı service-role okuması)
 import { NextResponse } from "next/server";
 import { bearerToken, mobilTokenCoz } from "@/lib/mobil/token";
-import { odaBilgiId, odaAcikMi, odaMedyalari } from "@/lib/oda/veri";
+import {
+  odaBilgiId,
+  odaAcikMi,
+  odaMedyalariSayfa,
+  odaMedyaSayim,
+} from "@/lib/oda/veri";
 
 export const dynamic = "force-dynamic";
 
+const VARSAYILAN_LIMIT = 50;
+const MAX_LIMIT = 100;
+
+// GET /api/mobile/medya?offset=0&limit=50 — sayfalı galeri (infinite scroll).
+// İlk sayfada (offset=0) istatistik de döner; sonraki sayfalarda dönmez (ucuz).
+// `sonraki`: bir sonraki offset veya null (son sayfa).
 export async function GET(request: Request) {
   const oturum = mobilTokenCoz(bearerToken(request));
   if (!oturum) {
@@ -18,9 +29,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ hata: "Oda erişime kapalı." }, { status: 403 });
   }
 
-  const tum = await odaMedyalari(oturum.eventId);
-  const medya = tum
-    .filter((m) => m.url && m.status !== "reddedildi")
+  const { searchParams } = new URL(request.url);
+  const limit = Math.min(
+    Math.max(Number(searchParams.get("limit")) || VARSAYILAN_LIMIT, 1),
+    MAX_LIMIT,
+  );
+  const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
+
+  const [sayfa, istatistik] = await Promise.all([
+    odaMedyalariSayfa(oturum.eventId, offset, limit),
+    offset === 0 ? odaMedyaSayim(oturum.eventId) : Promise.resolve(null),
+  ]);
+
+  const medya = sayfa
+    .filter((m) => m.url)
     .map((m) => ({
       id: m.id,
       url: m.url,
@@ -33,12 +55,8 @@ export async function GET(request: Request) {
       tarih: m.created_at,
     }));
 
-  const foto = medya.filter((m) => m.tur === "fotograf").length;
-  const video = medya.filter((m) => m.tur === "video").length;
-  const sonYukleme = medya.reduce<string | null>(
-    (en, m) => (en === null || m.tarih > en ? m.tarih : en),
-    null,
-  );
+  // Tam sayfa geldiyse muhtemelen devamı var; eksikse son sayfa.
+  const sonraki = sayfa.length === limit ? offset + limit : null;
 
   return NextResponse.json({
     oda: {
@@ -48,7 +66,8 @@ export async function GET(request: Request) {
       event_type: bilgi!.event_type,
       event_date: bilgi!.event_date,
     },
-    istatistik: { foto, video, toplam: medya.length, son_yukleme: sonYukleme },
+    istatistik,
     medya,
+    sonraki,
   });
 }
