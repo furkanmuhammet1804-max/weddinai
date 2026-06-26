@@ -155,13 +155,19 @@ export async function odaMedyalariSayfa(
   eventId: string,
   offset: number,
   limit: number,
+  filtre?: { tur?: FotoVideo; favori?: boolean },
 ): Promise<OdaMedya[]> {
   const admin = createAdminClient();
-  const { data } = await admin
+  let sorgu = admin
     .from("media")
     .select(MEDYA_SELECT)
     .eq("event_id", eventId)
-    .neq("status", "reddedildi")
+    .neq("status", "reddedildi");
+  // Sunucu tarafı filtre — istemci yalnız yüklenmiş sayfaları filtrelemesin,
+  // sayfalama (infinite scroll) filtrelenmiş küme üzerinde doğru çalışsın.
+  if (filtre?.tur) sorgu = sorgu.eq("file_type", filtre.tur);
+  if (filtre?.favori) sorgu = sorgu.eq("is_favorite", true);
+  const { data } = await sorgu
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   return medyaSatirBindir((data ?? []) as Record<string, unknown>[]);
