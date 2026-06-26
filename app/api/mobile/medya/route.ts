@@ -36,8 +36,15 @@ export async function GET(request: Request) {
   );
   const offset = Math.max(Number(searchParams.get("offset")) || 0, 0);
 
+  // Galeri çipleri için sunucu tarafı filtre (tür + favori). İstatistik her zaman
+  // GENEL sayımdır (filtreden bağımsız), yalnız ilk sayfada döner.
+  const turParam = searchParams.get("tur");
+  const tur =
+    turParam === "fotograf" || turParam === "video" ? turParam : undefined;
+  const favori = searchParams.get("favori") === "1";
+
   const [sayfa, istatistik] = await Promise.all([
-    odaMedyalariSayfa(oturum.eventId, offset, limit),
+    odaMedyalariSayfa(oturum.eventId, offset, limit, { tur, favori }),
     offset === 0 ? odaMedyaSayim(oturum.eventId) : Promise.resolve(null),
   ]);
 
